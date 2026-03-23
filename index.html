@@ -445,6 +445,11 @@
     cursor: pointer;
   }
   .modal-close:hover { background: var(--orange); color: #000; }
+  .settings-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .settings-label { font-size: 7px; color: var(--text-dim); width: 56px; flex-shrink: 0; }
+  .settings-input { flex: 1; background: #0a0700; border: 2px solid #3a2a12; color: var(--text); font-family: 'Press Start 2P', monospace; font-size: 8px; padding: 7px 8px; }
+  .settings-input:focus { outline: none; border-color: var(--orange); }
+  select.settings-input option { background: #1c1208; }
 
   /* ---- WIN OVERLAY ---- */
   .win-overlay {
@@ -494,10 +499,30 @@
 <div class="modal-overlay" id="settingsModal">
   <div class="modal px-box">
     <div class="modal-title">⚙ 设置</div>
-    <div style="font-size:8px;color:var(--text-dim);margin-bottom:10px">API Key（存在本地，不上传）</div>
-    <input id="apiKeyInput" type="password" placeholder="sk-ant-..." style="width:100%;background:#0a0700;border:2px solid #3a2a12;color:var(--text);font-family:'Press Start 2P',monospace;font-size:8px;padding:8px;margin-bottom:12px">
+    <div class="settings-row">
+      <div class="settings-label">服务商</div>
+      <select id="providerSelect" class="settings-input" onchange="onProviderChange()">
+        <option value="claude">Claude (pumpkinai)</option>
+        <option value="qwen">通义千问 (阿里云)</option>
+        <option value="custom">自定义</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">API Key</div>
+      <input id="apiKeyInput" type="password" placeholder="sk-..." class="settings-input">
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Base URL</div>
+      <input id="baseUrlInput" type="text" placeholder="https://..." class="settings-input">
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">模型</div>
+      <input id="modelInput" type="text" placeholder="claude-sonnet-4-6" class="settings-input">
+    </div>
+    <div id="settingsStatus" style="font-size:8px;color:var(--green);min-height:14px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px">
       <button class="modal-close" onclick="saveSettings()">保存</button>
+      <button class="modal-close" onclick="testConnection()" style="border-color:var(--green);color:var(--green)">测试连接</button>
       <button class="modal-close" onclick="closeSettings()" style="border-color:#555;color:#555">取消</button>
     </div>
   </div>
@@ -593,11 +618,32 @@
 
 <script>
 // ---- CONFIG ----
-const API_BASE = 'https://new.pumpkinai.vip';
-const MODEL = 'claude-sonnet-4-6';
+const PROVIDERS = {
+  claude: {
+    name: 'Claude (pumpkinai)',
+    base: 'https://new.pumpkinai.vip',
+    model: 'claude-sonnet-4-6',
+    format: 'anthropic'
+  },
+  qwen: {
+    name: '通义千问 (阿里云)',
+    base: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-plus',
+    format: 'openai'
+  },
+  custom: {
+    name: '自定义',
+    base: '',
+    model: '',
+    format: 'openai'
+  }
+};
 
-function getApiKey() { return localStorage.getItem('gh_api_key') || ''; }
-function setApiKey(k) { localStorage.setItem('gh_api_key', k); }
+function getCfg() {
+  try { return JSON.parse(localStorage.getItem('gh_cfg')) || { provider: 'claude', key: '', base: '', model: '' }; }
+  catch(e) { return { provider: 'claude', key: '', base: '', model: '' }; }
+}
+function saveCfg(c) { localStorage.setItem('gh_cfg', JSON.stringify(c)); }
 
 // ---- DATA ----
 const STAGES = ['建立联系','同步信息','挖掘需求','解决顾虑','达成成交'];
@@ -761,14 +807,9 @@ async function generate() {
   const input = document.getElementById('inputBox').value.trim();
   if (!input) { alert('请先输入情报'); return; }
 
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    openSettings();
-    alert('请先在设置中填入 API Key');
-    return;
-  }
+  const cfg = getCfg();
+  if (!cfg.key) { openSettings(); return; }
 
-  // save current tab content
   const tab = getActiveTab();
   if (tab) { tab.content = input; saveData(); }
 
@@ -777,83 +818,22 @@ async function generate() {
   btn.textContent = '▶ 出击中...';
 
   const box = document.getElementById('outputBox');
-  box.innerHTML = '<span class="placeholder">正在分析情报...</span>';
+  box.innerHTML = '';
+  outputContent = '';
+  _lineBuffer = '';
 
-  // build context from KB
-  const kbContext = buildKBContext();
   const stageHint = tab?.type === 'customer' ? `\n当前客户销售阶段：${STAGES[tab.stage]}（${tab.stage + 1}/5）` : '';
-
-  const systemPrompt = `你是一个专业的销售助手，服务于一位播客主。你的任务是分析销售对话或内容，给出精准的战术建议。
-
-身份背景：
-- 用户是一个播客主，主要销售播客变现相关课程和产品
-- 销售流程分5个阶段：建立联系 → 同步信息 → 挖掘需求 → 解决顾虑 → 达成成交
-${stageHint}
-
-${kbContext}
-
-输出格式要求：
-- 用 ## 开头标注每个板块标题
-- 内容简洁有力，每条建议不超过2句话
-- 如果是聊天记录，必须给出【下一句话怎么说】的具体话术
-- 语气要像游戏攻略一样直接，不废话`;
+  const systemPrompt = `你是一个专业的销售助手，服务于一位播客主。分析销售对话，给出精准战术建议。
+- 用户销售播客变现相关课程和产品
+- 销售流程：建立联系→同步信息→挖掘需求→解决顾虑→达成成交${stageHint}
+${buildKBContext()}
+输出要求：用##标注板块标题；内容简洁；如果是聊天记录必须给出下一句具体话术；像游戏攻略一样直接。`;
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-
-    const res = await fetch(`${API_BASE}/v1/messages`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: input }]
-      })
+    await streamAI(cfg, input, systemPrompt, (chunk) => {
+      outputContent += chunk;
+      renderStreamChunk(box, chunk);
     });
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`API 错误 ${res.status}: ${err}`);
-    }
-
-    const data = await res.json();
-
-    if (data.content && data.content[0] && data.content[0].text) {
-      outputContent = data.content[0].text;
-    } else if (data.choices && data.choices[0]) {
-      outputContent = data.choices[0].message?.content || '';
-    } else {
-      throw new Error('无法解析响应：' + JSON.stringify(data).slice(0, 200));
-    }
-
-    // render with typewriter
-    box.innerHTML = '';
-    const lines = outputContent.split('\n');
-    lines.forEach((line, idx) => {
-      setTimeout(() => {
-        if (!line.trim()) { box.appendChild(document.createElement('br')); return; }
-        const el = document.createElement('div');
-        if (line.startsWith('##')) {
-          el.className = 'section-title';
-          el.textContent = line.replace(/^##\s*/, '');
-        } else {
-          el.className = 'ai-line';
-          el.textContent = line;
-        }
-        box.appendChild(el);
-        box.scrollTop = box.scrollHeight;
-      }, idx * 60);
-    });
-
   } catch(e) {
     const msg = e.name === 'AbortError' ? '请求超时，请重试' : e.message;
     box.innerHTML = `<span style="color:var(--red)">出击失败：${msg}</span>`;
@@ -863,26 +843,174 @@ ${kbContext}
   }
 }
 
+// ---- STREAM RENDER ----
+let _lineBuffer = '';
+function renderStreamChunk(box, chunk) {
+  _lineBuffer += chunk;
+  const lines = _lineBuffer.split('\n');
+  _lineBuffer = lines.pop(); // keep incomplete last line
+
+  lines.forEach(line => {
+    if (!line.trim()) { box.appendChild(document.createElement('br')); return; }
+    const el = document.createElement('div');
+    if (line.startsWith('##')) {
+      el.className = 'section-title';
+      el.textContent = line.replace(/^##\s*/, '');
+    } else {
+      el.className = 'ai-line';
+      el.textContent = line;
+    }
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  });
+
+  // update last partial line
+  if (_lineBuffer) {
+    let last = box.querySelector('.stream-cursor');
+    if (!last) { last = document.createElement('div'); last.className = 'ai-line stream-cursor'; box.appendChild(last); }
+    last.textContent = _lineBuffer;
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+// ---- API CALL (streaming) ----
+async function streamAI(cfg, userMsg, systemPrompt, onChunk) {
+  const provider = PROVIDERS[cfg.provider] || PROVIDERS.custom;
+  const format = provider.format;
+  const base = cfg.base || provider.base;
+  const model = cfg.model || provider.model;
+  const key = cfg.key;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
+  let url, headers, body;
+
+  if (format === 'anthropic') {
+    url = `${base}/v1/messages`;
+    headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    };
+    body = { model, max_tokens: 1024, stream: true, system: systemPrompt, messages: [{ role: 'user', content: userMsg }] };
+  } else {
+    url = `${base}/chat/completions`;
+    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` };
+    body = { model, max_tokens: 1024, stream: true, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }] };
+  }
+
+  const res = await fetch(url, { method: 'POST', signal: controller.signal, headers, body: JSON.stringify(body) });
+  clearTimeout(timeout);
+
+  if (!res.ok) { const err = await res.text(); throw new Error(`API错误 ${res.status}: ${err.slice(0,200)}`); }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const text = decoder.decode(value);
+    const lines = text.split('\n');
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') return;
+      try {
+        const json = JSON.parse(data);
+        let chunk = '';
+        if (format === 'anthropic') {
+          chunk = json.delta?.text || '';
+        } else {
+          chunk = json.choices?.[0]?.delta?.content || '';
+        }
+        if (chunk) onChunk(chunk);
+      } catch(e) {}
+    }
+  }
+}
+
+// ---- NON-STREAMING FALLBACK ----
+async function callAI(cfg, userMsg, systemPrompt) {
+  const provider = PROVIDERS[cfg.provider] || PROVIDERS.custom;
+  const format = provider.format;
+  const base = cfg.base || provider.base;
+  const model = cfg.model || provider.model;
+
+  let url, headers, body;
+  if (format === 'anthropic') {
+    url = `${base}/v1/messages`;
+    headers = { 'Content-Type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+    body = { model, max_tokens: 50, system: systemPrompt, messages: [{ role: 'user', content: userMsg }] };
+  } else {
+    url = `${base}/chat/completions`;
+    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.key}` };
+    body = { model, max_tokens: 50, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }] };
+  }
+
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${res.status}`);
+  const data = await res.json();
+  return data.content?.[0]?.text || data.choices?.[0]?.message?.content || '';
+}
+
 function buildKBContext() {
   const parts = [];
-  if (kb.product.length) parts.push(`【武器库-产品信息】\n${kb.product.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
-  if (kb.script.length) parts.push(`【技能书-话术】\n${kb.script.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
-  if (kb.tutorial.length) parts.push(`【秘籍-销售教程】\n${kb.tutorial.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
-  return parts.length ? '知识库参考：\n' + parts.join('\n\n') : '';
+  if (kb.product.length) parts.push(`【武器库】\n${kb.product.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
+  if (kb.script.length) parts.push(`【技能书】\n${kb.script.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
+  if (kb.tutorial.length) parts.push(`【秘籍】\n${kb.tutorial.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
+  return parts.length ? '\n知识库：\n' + parts.join('\n\n') : '';
 }
 
 // ---- SETTINGS ----
 function openSettings() {
-  document.getElementById('apiKeyInput').value = getApiKey();
+  const cfg = getCfg();
+  const p = PROVIDERS[cfg.provider] || PROVIDERS.claude;
+  document.getElementById('providerSelect').value = cfg.provider || 'claude';
+  document.getElementById('apiKeyInput').value = cfg.key || '';
+  document.getElementById('baseUrlInput').value = cfg.base || p.base;
+  document.getElementById('modelInput').value = cfg.model || p.model;
+  document.getElementById('settingsStatus').textContent = '';
   document.getElementById('settingsModal').classList.add('show');
 }
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('show');
 }
+function onProviderChange() {
+  const p = PROVIDERS[document.getElementById('providerSelect').value];
+  if (p && p.base) document.getElementById('baseUrlInput').value = p.base;
+  if (p && p.model) document.getElementById('modelInput').value = p.model;
+}
 function saveSettings() {
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if (key) setApiKey(key);
+  const cfg = {
+    provider: document.getElementById('providerSelect').value,
+    key: document.getElementById('apiKeyInput').value.trim(),
+    base: document.getElementById('baseUrlInput').value.trim(),
+    model: document.getElementById('modelInput').value.trim()
+  };
+  saveCfg(cfg);
   closeSettings();
+}
+async function testConnection() {
+  const cfg = {
+    provider: document.getElementById('providerSelect').value,
+    key: document.getElementById('apiKeyInput').value.trim(),
+    base: document.getElementById('baseUrlInput').value.trim(),
+    model: document.getElementById('modelInput').value.trim()
+  };
+  const status = document.getElementById('settingsStatus');
+  status.style.color = 'var(--gold)';
+  status.textContent = '测试中...';
+  try {
+    const result = await callAI(cfg, '你好，回复"连接成功"三个字', '');
+    status.style.color = 'var(--green)';
+    status.textContent = '✓ 连接成功！模型：' + cfg.model;
+  } catch(e) {
+    status.style.color = 'var(--red)';
+    status.textContent = '✗ ' + e.message.slice(0, 60);
+  }
 }
 
 // ---- SAVE TO KB ----
@@ -965,10 +1093,8 @@ renderKB();
 document.getElementById('taskBadge').textContent = tabs.filter(t => t.type === 'customer').length;
 
 // prompt for API key if not set
-if (!getApiKey()) {
-  setTimeout(() => {
-    openSettings();
-  }, 500);
+if (!getCfg().key) {
+  setTimeout(() => openSettings(), 500);
 }
 </script>
 </body>
