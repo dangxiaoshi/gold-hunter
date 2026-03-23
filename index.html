@@ -592,8 +592,8 @@
 
 <script>
 // ---- CONFIG ----
-const API_BASE = 'https://api.hardon.work';
-const MODEL = 'claude-3-5-haiku-20241022';
+const API_BASE = 'https://new.pumpkinai.vip';
+const MODEL = 'claude-sonnet-4-6';
 
 function getApiKey() { return localStorage.getItem('gh_api_key') || ''; }
 function setApiKey(k) { localStorage.setItem('gh_api_key', k); }
@@ -803,7 +803,8 @@ ${kbContext}
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
         model: MODEL,
@@ -820,9 +821,13 @@ ${kbContext}
 
     const data = await res.json();
 
-    // DEBUG: show raw response
-    box.innerHTML = `<span style="color:#ff0;font-size:8px;word-break:break-all">${JSON.stringify(data)}</span>`;
-    return;
+    if (data.content && data.content[0] && data.content[0].text) {
+      outputContent = data.content[0].text;
+    } else if (data.choices && data.choices[0]) {
+      outputContent = data.choices[0].message?.content || '';
+    } else {
+      throw new Error('无法解析响应：' + JSON.stringify(data).slice(0, 200));
+    }
 
     // render with typewriter
     box.innerHTML = '';
