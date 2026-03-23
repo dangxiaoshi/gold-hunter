@@ -819,7 +819,10 @@ ${kbContext}
     }
 
     const data = await res.json();
-    outputContent = data.content[0].text;
+
+    // DEBUG: show raw response
+    box.innerHTML = `<span style="color:#ff0;font-size:8px;word-break:break-all">${JSON.stringify(data)}</span>`;
+    return;
 
     // render with typewriter
     box.innerHTML = '';
