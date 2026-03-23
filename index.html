@@ -799,8 +799,12 @@ ${kbContext}
 - 语气要像游戏攻略一样直接，不废话`;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
     const res = await fetch(`${API_BASE}/v1/messages`, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
@@ -814,6 +818,7 @@ ${kbContext}
         messages: [{ role: 'user', content: input }]
       })
     });
+    clearTimeout(timeout);
 
     if (!res.ok) {
       const err = await res.text();
@@ -850,11 +855,12 @@ ${kbContext}
     });
 
   } catch(e) {
-    box.innerHTML = `<span style="color:var(--red)">出击失败：${e.message}</span>`;
+    const msg = e.name === 'AbortError' ? '请求超时，请重试' : e.message;
+    box.innerHTML = `<span style="color:var(--red)">出击失败：${msg}</span>`;
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = '▶ 出击';
   }
-
-  btn.classList.remove('loading');
-  btn.textContent = '▶ 出击';
 }
 
 function buildKBContext() {
