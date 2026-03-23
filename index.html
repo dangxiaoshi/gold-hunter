@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>金币猎人</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  :root {
+    --gold: #f0c040;
+    --gold-dark: #c08010;
+    --orange: #e8820c;
+    --orange-bright: #ff9a20;
+    --bg: #0c0906;
+    --panel: #1c1208;
+    --panel2: #2a1c0a;
+    --green: #7ecf5a;
+    --red: #e05030;
+    --text: #d4c4a0;
+    --text-dim: #7a6a50;
+    --border: #e8820c;
+    --pixel: 2px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    min-height: 100vh;
+    padding: 0;
+    image-rendering: pixelated;
+  }
+
+  /* ---- PIXEL BORDER UTIL ---- */
+  .px-box {
+    border: var(--pixel) solid var(--border);
+    box-shadow: 3px 3px 0 #000,
+                inset 0 0 12px rgba(232,130,12,0.05);
+  }
+  .px-box-green {
+    border: var(--pixel) solid var(--green);
+    box-shadow: var(--pixel) var(--pixel) 0 #000;
+  }
+
+  /* ---- HEADER / BANNER ---- */
+  header {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+  .banner-img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+  }
+  .banner-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.1) 40%, rgba(12,8,2,0.75) 100%);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 16px 20px;
+  }
+  .logo-coin {
+    width: 28px; height: 28px;
+    background: var(--gold);
+    border: var(--pixel) solid #000;
+    box-shadow: var(--pixel) var(--pixel) 0 #000;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    animation: coinSpin 2s steps(4) infinite;
+    flex-shrink: 0;
+  }
+  @keyframes coinSpin {
+    0%   { transform: scaleX(1); background: var(--gold); }
+    25%  { transform: scaleX(0.6); background: var(--gold-dark); }
+    50%  { transform: scaleX(0.1); background: var(--gold-dark); }
+    75%  { transform: scaleX(0.6); background: var(--gold-dark); }
+    100% { transform: scaleX(1); background: var(--gold); }
+  }
+  .banner-text { display: flex; align-items: center; gap: 10px; }
+  .title {
+    color: var(--gold);
+    font-size: 18px;
+    text-shadow: 2px 2px 0 #000, 0 0 16px rgba(240,192,64,0.7);
+    letter-spacing: 3px;
+  }
+  .subtitle { color: #a08060; font-size: 8px; margin-top: 6px; }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .daily-task {
+    background: rgba(42,28,10,0.9);
+    padding: 6px 10px;
+    border: var(--pixel) solid var(--orange);
+    box-shadow: 2px 2px 0 #000;
+    font-size: 8px;
+    color: var(--orange-bright);
+    cursor: pointer;
+    position: relative;
+  }
+  .daily-task:hover { background: var(--panel2); color: var(--gold); }
+  .daily-task .badge {
+    position: absolute;
+    top: -6px; right: -6px;
+    background: var(--red);
+    color: #fff;
+    width: 14px; height: 14px;
+    font-size: 7px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid #000;
+  }
+
+  /* ---- CONTENT WRAPPER ---- */
+  .content {
+    background: var(--bg);
+    padding: 12px;
+  }
+
+  /* ---- BOTTOM BANNER ---- */
+  .bottom-banner {
+    width: 100%;
+    overflow: hidden;
+  }
+  .bottom-banner img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    object-position: center bottom;
+    display: block;
+  }
+
+  /* ---- MAIN LAYOUT ---- */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 10px;
+    min-height: 600px;
+  }
+
+  /* ---- TABS ---- */
+  .tabs-area {
+    grid-column: 1 / 3;
+  }
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0;
+    flex-wrap: wrap;
+  }
+  .tab {
+    background: var(--panel);
+    border: var(--pixel) solid #3a2a12;
+    border-bottom: none;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    transition: none;
+    user-select: none;
+  }
+  .tab:hover { border-color: var(--orange); color: var(--text); }
+  .tab.active {
+    background: var(--panel2);
+    border-color: var(--orange);
+    color: var(--orange-bright);
+    border-bottom-color: var(--panel2);
+    box-shadow: 0 -1px 6px rgba(232,130,12,0.2);
+  }
+  .tab .progress-dot {
+    width: 6px; height: 6px;
+    background: var(--green);
+    border: 1px solid #000;
+    display: inline-block;
+  }
+  .tab .progress-dot.warn { background: var(--orange); }
+  .tab .close-btn {
+    color: #4a3a22;
+    font-size: 8px;
+    margin-left: 2px;
+    cursor: pointer;
+  }
+  .tab .close-btn:hover { color: var(--red); }
+  .tab-add {
+    background: transparent;
+    border: var(--pixel) dashed #3a2a12;
+    border-bottom: none;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 10px;
+    color: #4a3a22;
+  }
+  .tab-add:hover { color: var(--orange); border-color: var(--orange); }
+
+  /* folder tab */
+  .tab.folder::before {
+    content: '▶';
+    font-size: 6px;
+    color: var(--gold);
+  }
+  .tab.folder.open::before { content: '▼'; }
+
+  /* ---- INPUT PANEL ---- */
+  .input-panel {
+    background: var(--panel);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .panel-label {
+    font-size: 9px;
+    color: var(--orange-bright);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    text-shadow: 0 0 8px rgba(232,130,12,0.5);
+  }
+  textarea {
+    background: rgba(6, 4, 1, 0.75);
+    border: var(--pixel) solid #4a3018;
+    color: #f0e0b0;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    padding: 10px;
+    resize: none;
+    width: 100%;
+    line-height: 2;
+    flex: 1;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--orange);
+    box-shadow: 0 0 10px rgba(232,130,12,0.25);
+  }
+  textarea::placeholder { color: #5a4020; }
+
+  /* ---- OUTPUT PANEL ---- */
+  .output-panel {
+    background: var(--panel);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .output-box {
+    background: rgba(6, 4, 1, 0.75);
+    border: var(--pixel) solid #4a3018;
+    padding: 12px;
+    flex: 1;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 2.1;
+    color: #b8e090;
+  }
+  .output-box .placeholder { color: #5a4020; }
+  .output-box .ai-line { color: #c0e8a0; }
+  .output-box .section-title {
+    color: var(--orange-bright);
+    margin: 10px 0 6px 0;
+    font-size: 10px;
+    text-shadow: 0 0 8px rgba(255,154,32,0.5);
+  }
+
+  /* ---- GENERATE BUTTON ---- */
+  .gen-btn {
+    background: var(--orange);
+    color: #000;
+    border: var(--pixel) solid #000;
+    box-shadow: 3px 3px 0 #000, 0 0 12px rgba(232,130,12,0.3);
+    padding: 10px 20px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: none;
+    align-self: flex-start;
+  }
+  .gen-btn:hover {
+    background: var(--orange-bright);
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0 #000;
+  }
+  .gen-btn:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 #000;
+  }
+  .gen-btn.loading {
+    background: #5a3a0a;
+    color: #7a5a2a;
+    cursor: not-allowed;
+    animation: blink 0.5s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.5; } }
+
+  .save-btn {
+    background: var(--panel2);
+    color: var(--text-dim);
+    border: var(--pixel) solid #3a2a12;
+    box-shadow: 2px 2px 0 #000;
+    padding: 4px 8px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    cursor: pointer;
+  }
+  .save-btn:hover { border-color: var(--orange); color: var(--orange-bright); }
+
+  /* ---- KNOWLEDGE BASE ---- */
+  .kb-area {
+    grid-column: 1 / 3;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .kb-card {
+    background: var(--panel);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 180px;
+  }
+  .kb-title {
+    color: var(--orange-bright);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-shadow: 0 0 6px rgba(255,154,32,0.3);
+  }
+  .kb-count { color: var(--text-dim); font-size: 7px; }
+  .kb-list {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 10px;
+    color: #8a7a5a;
+    line-height: 2;
+  }
+  .kb-item {
+    padding: 3px 4px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .kb-item:hover { border-left-color: var(--orange); color: var(--text); }
+  .kb-empty { color: #3a2a10; font-size: 7px; }
+
+  /* ---- PROGRESS BAR ---- */
+  .progress-area {
+    margin-top: 4px;
+  }
+  .progress-label { font-size: 7px; color: var(--text-dim); margin-bottom: 4px; }
+  .progress-stages {
+    display: flex;
+    gap: 2px;
+  }
+  .stage {
+    flex: 1;
+    height: 10px;
+    background: #1a0e04;
+    border: 1px solid #2a1c0a;
+    position: relative;
+    cursor: pointer;
+  }
+  .stage:hover { border-color: var(--orange); }
+  .stage.done { background: #4a7a20; border-color: #000; }
+  .stage.current { background: var(--orange); border-color: #000; animation: stagePulse 1s steps(2) infinite; box-shadow: 0 0 6px rgba(232,130,12,0.6); }
+  @keyframes stagePulse { 50% { opacity: 0.7; } }
+  .stage-tooltip {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0a0700;
+    border: 1px solid var(--orange);
+    padding: 3px 6px;
+    font-size: 6px;
+    color: var(--orange-bright);
+    white-space: nowrap;
+    display: none;
+    z-index: 10;
+  }
+  .stage:hover .stage-tooltip { display: block; }
+
+  /* ---- DAILY MODAL ---- */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: rgba(22, 14, 6, 0.96);
+    border: var(--pixel) solid var(--orange);
+    box-shadow: 4px 4px 0 #000, 0 0 20px rgba(232,130,12,0.15);
+    padding: 20px;
+    width: 380px;
+    max-width: 90vw;
+  }
+  .modal-title { color: var(--orange-bright); font-size: 11px; margin-bottom: 14px; text-shadow: 0 0 8px rgba(255,154,32,0.4); }
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #2a1c0a;
+    font-size: 8px;
+    cursor: pointer;
+  }
+  .task-item:hover { color: var(--orange-bright); }
+  .task-check {
+    width: 12px; height: 12px;
+    border: var(--pixel) solid #3a2a12;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+    flex-shrink: 0;
+  }
+  .task-check.done { border-color: var(--green); color: var(--green); }
+  .task-stage { color: var(--text-dim); font-size: 7px; }
+  .modal-close {
+    margin-top: 14px;
+    background: transparent;
+    border: var(--pixel) solid var(--orange);
+    color: var(--orange);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .modal-close:hover { background: var(--orange); color: #000; }
+
+  /* ---- WIN OVERLAY ---- */
+  .win-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .win-overlay.show { display: flex; }
+  .win-coins {
+    font-size: 48px;
+    animation: coinBounce 0.3s steps(2) infinite alternate;
+    filter: drop-shadow(0 0 12px rgba(240,192,64,0.8));
+  }
+  @keyframes coinBounce { to { transform: translateY(-10px); } }
+  .win-text { color: var(--gold); font-size: 16px; text-shadow: 3px 3px 0 #000, 0 0 16px rgba(240,192,64,0.5); text-align: center; line-height: 2.2; }
+  .win-close {
+    background: var(--orange); color: #000;
+    border: var(--pixel) solid #000; box-shadow: 3px 3px 0 #000, 0 0 12px rgba(232,130,12,0.4);
+    padding: 10px 20px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px; cursor: pointer; margin-top: 10px;
+  }
+  .win-close:hover { background: var(--gold); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0700; }
+  ::-webkit-scrollbar-thumb { background: #3a2a12; border: 1px solid #000; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--orange); }
+</style>
+</head>
+<body>
+
+<!-- WIN OVERLAY -->
+<div class="win-overlay" id="winOverlay">
+  <div class="win-coins">🪙🪙🪙</div>
+  <div class="win-text">目标击破！<br>宝藏到手！<br>+100 金币</div>
+  <button class="win-close" onclick="closeWin()">继续狩猎 ▶</button>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal px-box">
+    <div class="modal-title">⚙ 设置</div>
+    <div style="font-size:8px;color:var(--text-dim);margin-bottom:10px">API Key（存在本地，不上传）</div>
+    <input id="apiKeyInput" type="password" placeholder="sk-ant-..." style="width:100%;background:#0a0700;border:2px solid #3a2a12;color:var(--text);font-family:'Press Start 2P',monospace;font-size:8px;padding:8px;margin-bottom:12px">
+    <div style="display:flex;gap:8px">
+      <button class="modal-close" onclick="saveSettings()">保存</button>
+      <button class="modal-close" onclick="closeSettings()" style="border-color:#555;color:#555">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- DAILY MODAL -->
+<div class="modal-overlay" id="dailyModal">
+  <div class="modal px-box">
+    <div class="modal-title">⚔ 今日任务</div>
+    <div id="taskList"></div>
+    <button class="modal-close" onclick="closeDaily()">关闭</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <img class="banner-img" src="ChatGPT Image 2026年3月22日 12_01_28.png" alt="Gold Hunter Banner" onerror="this.style.display='none'">
+  <div class="banner-overlay">
+    <div class="banner-text">
+      <div class="logo-coin">🪙</div>
+      <div>
+        <div class="title">金币猎人</div>
+        <div class="subtitle">CLOSING THE DEAL · SALES ASSISTANT v0.1</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="daily-task" onclick="openSettings()" style="font-size:12px;padding:6px 10px">⚙</div>
+      <div class="daily-task" onclick="openDaily()">
+        ⚔ 今日任务
+        <div class="badge" id="taskBadge">2</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- CONTENT WRAPPER -->
+<div class="content">
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TABS -->
+  <div class="tabs-area">
+    <div class="tab-bar" id="tabBar">
+      <!-- tabs rendered by JS -->
+    </div>
+  </div>
+
+  <!-- INPUT -->
+  <div class="input-panel px-box">
+    <div class="panel-label">📜 情报输入</div>
+
+    <!-- progress bar shown when tab is a customer -->
+    <div class="progress-area" id="progressArea">
+      <div class="progress-label" id="progressLabel">客户进度：</div>
+      <div class="progress-stages" id="progressStages"></div>
+    </div>
+
+    <textarea id="inputBox" placeholder="把聊天记录、话术、教程... 直接粘贴进来&#10;&#10;例：&#10;[客户] 你好，想了解一下你的课程&#10;[我] 你好！你现在主要想解决什么问题？&#10;[客户] 想靠播客赚钱但不知道怎么起步" rows="10"></textarea>
+    <button class="gen-btn px-box" id="genBtn" onclick="generate()">▶ 出击</button>
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="output-panel px-box">
+    <div class="panel-label">⚔ 战术指令</div>
+    <div class="output-box" id="outputBox">
+      <span class="placeholder">点击「出击」，AI 将根据情报给出战术指令...</span>
+    </div>
+  </div>
+
+  <!-- KNOWLEDGE BASE -->
+  <div class="kb-area">
+    <div class="kb-card px-box">
+      <div class="kb-title">🗡 武器库 <span class="kb-count" id="productCount">0 条</span><button class="save-btn" onclick="saveTo('product')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="productList"><div class="kb-empty">暂无内容，从输出区收录</div></div>
+    </div>
+    <div class="kb-card px-box">
+      <div class="kb-title">📜 技能书 <span class="kb-count" id="scriptCount">0 条</span><button class="save-btn" onclick="saveTo('script')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="scriptList"><div class="kb-empty">暂无内容，从输出区收录</div></div>
+    </div>
+    <div class="kb-card px-box">
+      <div class="kb-title">📖 秘籍 <span class="kb-count" id="tutorialCount">0 条</span><button class="save-btn" onclick="saveTo('tutorial')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="tutorialList"><div class="kb-empty">暂无内容，从输出区收录</div></div>
+    </div>
+  </div>
+
+</div>
+</div><!-- end content -->
+
+<!-- BOTTOM BANNER -->
+<div class="bottom-banner">
+  <img src="ChatGPT Image 2026年3月22日 12_01_28.png" alt="搞钱搞流量">
+</div>
+
+<script>
+// ---- CONFIG ----
+const API_BASE = 'https://api.hardon.work';
+const MODEL = 'claude-3-5-haiku-20241022';
+
+function getApiKey() { return localStorage.getItem('gh_api_key') || ''; }
+function setApiKey(k) { localStorage.setItem('gh_api_key', k); }
+
+// ---- DATA ----
+const STAGES = ['建立联系','同步信息','挖掘需求','解决顾虑','达成成交'];
+
+const DEFAULT_TABS = [
+  { id: 1, name: '客户-示例', type: 'customer', stage: 0, content: '', isFolder: false },
+];
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem('gh_tabs');
+    return saved ? JSON.parse(saved) : DEFAULT_TABS;
+  } catch(e) { return DEFAULT_TABS; }
+}
+function saveData() {
+  localStorage.setItem('gh_tabs', JSON.stringify(tabs));
+  localStorage.setItem('gh_kb', JSON.stringify(kb));
+  localStorage.setItem('gh_activeTab', activeTabId);
+}
+function loadKB() {
+  try {
+    const saved = localStorage.getItem('gh_kb');
+    return saved ? JSON.parse(saved) : { product: [], script: [], tutorial: [] };
+  } catch(e) { return { product: [], script: [], tutorial: [] }; }
+}
+
+let tabs = loadData();
+let activeTabId = parseInt(localStorage.getItem('gh_activeTab')) || tabs[0]?.id;
+let folderOpen = {};
+let kb = loadKB();
+let outputContent = '';
+
+// ---- TABS ----
+function renderTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+
+  tabs.forEach(tab => {
+    if (tab.isFolder) {
+      const el = makeTabEl(tab, true);
+      bar.appendChild(el);
+      if (folderOpen[tab.id]) {
+        tab.children.forEach(child => {
+          const cel = makeTabEl(child, false, true);
+          bar.appendChild(cel);
+        });
+      }
+    } else {
+      bar.appendChild(makeTabEl(tab, false));
+    }
+  });
+
+  const addBtn = document.createElement('div');
+  addBtn.className = 'tab tab-add';
+  addBtn.textContent = '+';
+  addBtn.onclick = addTab;
+  bar.appendChild(addBtn);
+
+  renderProgress();
+}
+
+function makeTabEl(tab, isFolder, isChild = false) {
+  const el = document.createElement('div');
+  const isActive = tab.id === activeTabId;
+  el.className = `tab${isActive ? ' active' : ''}${isFolder ? ' folder' : ''}${isFolder && folderOpen[tab.id] ? ' open' : ''}${isChild ? '' : ''}`;
+  if (isChild) el.style.marginLeft = '12px';
+
+  if (tab.type === 'customer' && tab.stage >= 0) {
+    const dot = document.createElement('span');
+    dot.className = `progress-dot${tab.stage >= 3 ? ' warn' : ''}`;
+    el.appendChild(dot);
+  }
+
+  const nameSpan = document.createElement('span');
+  nameSpan.textContent = tab.name;
+  el.appendChild(nameSpan);
+
+  const closeSpan = document.createElement('span');
+  closeSpan.className = 'close-btn';
+  closeSpan.textContent = '✕';
+  closeSpan.onclick = (e) => { e.stopPropagation(); removeTab(tab.id); };
+  el.appendChild(closeSpan);
+
+  el.onclick = () => {
+    if (isFolder) {
+      folderOpen[tab.id] = !folderOpen[tab.id];
+    } else {
+      // save current input before switching
+      const cur = getActiveTab();
+      if (cur) cur.content = document.getElementById('inputBox').value;
+      activeTabId = tab.id;
+      // load new tab content
+      const next = getActiveTab();
+      document.getElementById('inputBox').value = next?.content || '';
+      saveData();
+    }
+    renderTabs();
+  };
+  return el;
+}
+
+function addTab() {
+  const name = prompt('标签名称（例：客户-张三）') || `标签${tabs.length + 1}`;
+  const isCustomer = name.startsWith('客户');
+  tabs.push({ id: Date.now(), name, type: isCustomer ? 'customer' : 'note', stage: isCustomer ? 0 : -1, content: '', isFolder: false });
+  activeTabId = tabs[tabs.length - 1].id;
+  document.getElementById('inputBox').value = '';
+  saveData();
+  renderTabs();
+}
+
+function removeTab(id) {
+  tabs = tabs.filter(t => t.id !== id && !(t.children && t.children.find(c => c.id === id)));
+  tabs.forEach(t => { if (t.children) t.children = t.children.filter(c => c.id !== id); });
+  if (activeTabId === id) {
+    activeTabId = tabs[0]?.id || null;
+    document.getElementById('inputBox').value = getActiveTab()?.content || '';
+  }
+  saveData();
+  renderTabs();
+}
+
+function getActiveTab() {
+  for (const t of tabs) {
+    if (t.id === activeTabId) return t;
+    if (t.children) { const c = t.children.find(c => c.id === activeTabId); if (c) return c; }
+  }
+  return null;
+}
+
+// ---- PROGRESS ----
+function renderProgress() {
+  const tab = getActiveTab();
+  const area = document.getElementById('progressArea');
+  const stagesEl = document.getElementById('progressStages');
+  const labelEl = document.getElementById('progressLabel');
+
+  if (!tab || tab.type !== 'customer') {
+    area.style.display = 'none';
+    return;
+  }
+  area.style.display = 'block';
+  labelEl.textContent = `客户进度：${STAGES[tab.stage] || '—'}`;
+  stagesEl.innerHTML = '';
+  STAGES.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = `stage${i < tab.stage ? ' done' : i === tab.stage ? ' current' : ''}`;
+    el.innerHTML = `<div class="stage-tooltip">${s}</div>`;
+    el.onclick = () => {
+      tab.stage = i;
+      saveData();
+      if (i === 4) showWin();
+      renderTabs();
+    };
+    stagesEl.appendChild(el);
+  });
+}
+
+// ---- GENERATE ----
+async function generate() {
+  const input = document.getElementById('inputBox').value.trim();
+  if (!input) { alert('请先输入情报'); return; }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    openSettings();
+    alert('请先在设置中填入 API Key');
+    return;
+  }
+
+  // save current tab content
+  const tab = getActiveTab();
+  if (tab) { tab.content = input; saveData(); }
+
+  const btn = document.getElementById('genBtn');
+  btn.classList.add('loading');
+  btn.textContent = '▶ 出击中...';
+
+  const box = document.getElementById('outputBox');
+  box.innerHTML = '<span class="placeholder">正在分析情报...</span>';
+
+  // build context from KB
+  const kbContext = buildKBContext();
+  const stageHint = tab?.type === 'customer' ? `\n当前客户销售阶段：${STAGES[tab.stage]}（${tab.stage + 1}/5）` : '';
+
+  const systemPrompt = `你是一个专业的销售助手，服务于一位播客主。你的任务是分析销售对话或内容，给出精准的战术建议。
+
+身份背景：
+- 用户是一个播客主，主要销售播客变现相关课程和产品
+- 销售流程分5个阶段：建立联系 → 同步信息 → 挖掘需求 → 解决顾虑 → 达成成交
+${stageHint}
+
+${kbContext}
+
+输出格式要求：
+- 用 ## 开头标注每个板块标题
+- 内容简洁有力，每条建议不超过2句话
+- 如果是聊天记录，必须给出【下一句话怎么说】的具体话术
+- 语气要像游戏攻略一样直接，不废话`;
+
+  try {
+    const res = await fetch(`${API_BASE}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: input }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`API 错误 ${res.status}: ${err}`);
+    }
+
+    const data = await res.json();
+    outputContent = data.content[0].text;
+
+    // render with typewriter
+    box.innerHTML = '';
+    const lines = outputContent.split('\n');
+    lines.forEach((line, idx) => {
+      setTimeout(() => {
+        if (!line.trim()) { box.appendChild(document.createElement('br')); return; }
+        const el = document.createElement('div');
+        if (line.startsWith('##')) {
+          el.className = 'section-title';
+          el.textContent = line.replace(/^##\s*/, '');
+        } else {
+          el.className = 'ai-line';
+          el.textContent = line;
+        }
+        box.appendChild(el);
+        box.scrollTop = box.scrollHeight;
+      }, idx * 60);
+    });
+
+  } catch(e) {
+    box.innerHTML = `<span style="color:var(--red)">出击失败：${e.message}</span>`;
+  }
+
+  btn.classList.remove('loading');
+  btn.textContent = '▶ 出击';
+}
+
+function buildKBContext() {
+  const parts = [];
+  if (kb.product.length) parts.push(`【武器库-产品信息】\n${kb.product.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
+  if (kb.script.length) parts.push(`【技能书-话术】\n${kb.script.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
+  if (kb.tutorial.length) parts.push(`【秘籍-销售教程】\n${kb.tutorial.map(i => i.name + '：' + i.content.slice(0,200)).join('\n')}`);
+  return parts.length ? '知识库参考：\n' + parts.join('\n\n') : '';
+}
+
+// ---- SETTINGS ----
+function openSettings() {
+  document.getElementById('apiKeyInput').value = getApiKey();
+  document.getElementById('settingsModal').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('show');
+}
+function saveSettings() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) setApiKey(key);
+  closeSettings();
+}
+
+// ---- SAVE TO KB ----
+function saveTo(type) {
+  if (!outputContent) { alert('先出击获取战术，再存入宝库'); return; }
+  const name = prompt(`存入${type === 'product' ? '武器库' : type === 'script' ? '技能书' : '秘籍'}，给这条内容命名：`);
+  if (!name) return;
+  kb[type].push({ name, content: outputContent });
+  saveData();
+  renderKB();
+  const btn = event.target;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '✓ 已入库!';
+  btn.style.borderColor = 'var(--green)';
+  setTimeout(() => { btn.innerHTML = orig; btn.style.borderColor = ''; }, 1500);
+}
+
+function renderKB() {
+  ['product','script','tutorial'].forEach(type => {
+    const listEl = document.getElementById(`${type}List`);
+    const countEl = document.getElementById(`${type}Count`);
+    countEl.textContent = `${kb[type].length} 条`;
+    if (kb[type].length === 0) {
+      listEl.innerHTML = '<div class="kb-empty">宝库空空，等待收录...</div>';
+    } else {
+      listEl.innerHTML = kb[type].map(item =>
+        `<div class="kb-item">▸ ${item.name}</div>`
+      ).join('');
+    }
+  });
+}
+
+// ---- DAILY TASKS ----
+function getDailyTasks() {
+  return tabs
+    .filter(t => t.type === 'customer')
+    .map(t => ({ name: t.name, stage: STAGES[t.stage], done: false, id: t.id }));
+}
+
+function openDaily() {
+  const modal = document.getElementById('dailyModal');
+  const list = document.getElementById('taskList');
+  const tasks = getDailyTasks();
+  list.innerHTML = tasks.length === 0
+    ? '<div style="color:#555;font-size:8px;padding:10px 0">今天没有需要跟进的客户</div>'
+    : tasks.map((t, i) =>
+        `<div class="task-item" onclick="jumpToCustomer(${t.id})">
+          <div class="task-check${t.done ? ' done' : ''}">${t.done ? '✓' : ' '}</div>
+          <div>${t.name}<br><span class="task-stage">${t.stage}</span></div>
+        </div>`
+      ).join('');
+  modal.classList.add('show');
+}
+
+function jumpToCustomer(id) {
+  activeTabId = id;
+  closeDaily();
+  renderTabs();
+}
+
+function closeDaily() {
+  document.getElementById('dailyModal').classList.remove('show');
+}
+
+// ---- WIN ----
+function showWin() {
+  document.getElementById('winOverlay').classList.add('show');
+}
+function closeWin() {
+  document.getElementById('winOverlay').classList.remove('show');
+}
+
+// ---- INIT ----
+// load active tab content into textarea
+const initTab = getActiveTab();
+if (initTab) document.getElementById('inputBox').value = initTab.content || '';
+
+renderTabs();
+renderKB();
+document.getElementById('taskBadge').textContent = tabs.filter(t => t.type === 'customer').length;
+
+// prompt for API key if not set
+if (!getApiKey()) {
+  setTimeout(() => {
+    openSettings();
+  }, 500);
+}
+</script>
+</body>
+</html>
