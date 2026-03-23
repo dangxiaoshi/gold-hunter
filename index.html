@@ -357,9 +357,104 @@
     padding: 3px 4px;
     cursor: pointer;
     border-left: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
   }
   .kb-item:hover { border-left-color: var(--orange); color: var(--text); }
+  .kb-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kb-item-del { color: #4a3a22; font-size: 8px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+  .kb-item-del:hover { color: var(--red); }
   .kb-empty { color: #3a2a10; font-size: 7px; }
+  .kb-label { cursor: pointer; }
+  .kb-label:hover { color: var(--gold); }
+
+  /* ---- KB SUBPAGE ---- */
+  .kb-subpage {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .kb-subpage.show { display: flex; }
+  .kb-subpage-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .kb-back-btn {
+    background: transparent;
+    border: var(--pixel) solid var(--orange);
+    color: var(--orange-bright);
+    padding: 6px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 10px;
+  }
+  .kb-back-btn:hover { background: var(--panel2); }
+  .kb-subpage-title { color: var(--gold); font-size: 14px; flex: 1; }
+  .kb-subpage-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .kb-entry {
+    background: var(--panel);
+    border: var(--pixel) solid #3a2a12;
+    padding: 0;
+    overflow: hidden;
+  }
+  .kb-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #2a1c0a;
+  }
+  .kb-entry-header:hover { background: var(--panel2); }
+  .kb-entry-name { color: var(--orange-bright); font-size: 10px; flex: 1; }
+  .kb-entry-actions { display: flex; gap: 8px; align-items: center; }
+  .kb-entry-toggle { color: var(--text-dim); font-size: 9px; }
+  .kb-entry-del-btn {
+    background: transparent;
+    border: 1px solid #4a3a22;
+    color: #6a4a2a;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 8px;
+  }
+  .kb-entry-del-btn:hover { border-color: var(--red); color: var(--red); }
+  .kb-entry-content {
+    display: none;
+    padding: 12px;
+    color: var(--text);
+    font-size: 9px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+    background: #0f0a04;
+  }
+  .kb-entry-content.open { display: block; }
+  .kb-subpage-add {
+    background: var(--panel2);
+    border: var(--pixel) dashed var(--orange);
+    color: var(--orange);
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 9px;
+    margin-top: 4px;
+  }
+  .kb-subpage-add:hover { background: var(--panel); color: var(--gold); }
 
   /* ---- PROGRESS BAR ---- */
   .progress-area {
@@ -597,21 +692,31 @@
   <!-- KNOWLEDGE BASE -->
   <div class="kb-area">
     <div class="kb-card px-box">
-      <div class="kb-title">🗡 武器库 <span class="kb-count" id="productCount">0 条</span><button class="save-btn" onclick="saveTo('product')">⬆ 存入宝库</button></div>
-      <div class="kb-list" id="productList"><div class="kb-empty">暂无内容，从输出区收录</div></div>
+      <div class="kb-title"><span class="kb-label" onclick="openKBPage('product')">🗡 武器库</span> <span class="kb-count" id="productCount">0 条</span><button class="save-btn" onclick="saveTo('product')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="productList"><div class="kb-empty">点击「武器库」查看内容</div></div>
     </div>
     <div class="kb-card px-box">
-      <div class="kb-title">📜 技能书 <span class="kb-count" id="scriptCount">0 条</span><button class="save-btn" onclick="saveTo('script')">⬆ 存入宝库</button></div>
-      <div class="kb-list" id="scriptList"><div class="kb-empty">暂无内容，从输出区收录</div></div>
+      <div class="kb-title"><span class="kb-label" onclick="openKBPage('script')">📜 技能书</span> <span class="kb-count" id="scriptCount">0 条</span><button class="save-btn" onclick="saveTo('script')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="scriptList"><div class="kb-empty">点击「技能书」查看内容</div></div>
     </div>
     <div class="kb-card px-box">
-      <div class="kb-title">📖 秘籍 <span class="kb-count" id="tutorialCount">0 条</span><button class="save-btn" onclick="saveTo('tutorial')">⬆ 存入宝库</button></div>
-      <div class="kb-list" id="tutorialList"><div class="kb-empty">暂无内容，从输出区收录</div></div>
+      <div class="kb-title"><span class="kb-label" onclick="openKBPage('tutorial')">📖 秘籍</span> <span class="kb-count" id="tutorialCount">0 条</span><button class="save-btn" onclick="saveTo('tutorial')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="tutorialList"><div class="kb-empty">点击「秘籍」查看内容</div></div>
     </div>
   </div>
 
 </div>
 </div><!-- end content -->
+
+<!-- KB SUBPAGE -->
+<div class="kb-subpage" id="kbSubpage">
+  <div class="kb-subpage-header">
+    <button class="kb-back-btn" onclick="closeKBPage()">← 返回</button>
+    <div class="kb-subpage-title" id="kbSubpageTitle"></div>
+    <button class="save-btn" id="kbSubpageSaveBtn">⬆ 存入宝库</button>
+  </div>
+  <div class="kb-subpage-body" id="kbSubpageBody"></div>
+</div>
 
 <!-- BOTTOM BANNER -->
 <div class="bottom-banner">
@@ -668,8 +773,33 @@ function saveData() {
 function loadKB() {
   try {
     const saved = localStorage.getItem('gh_kb');
-    return saved ? JSON.parse(saved) : { product: [], script: [], tutorial: [] };
-  } catch(e) { return { product: [], script: [], tutorial: [] }; }
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // If all three are empty, load defaults
+      if (!parsed.product.length && !parsed.script.length && !parsed.tutorial.length) {
+        return getDefaultKB();
+      }
+      return parsed;
+    }
+    return getDefaultKB();
+  } catch(e) { return getDefaultKB(); }
+}
+
+function getDefaultKB() {
+  return {
+    product: [
+      {name:'产品全览·播客私教系列', content:'# 播客搞钱 · 产品库\n\n> 主理人：当小时 | 《搞钱搞流量》播客主理人\n> 定位：播客引流变现教练 | 全平台公域粉丝破百万 | 私域发售一小时40w\n\n## 产品地图\n免费内容 → ¥299社群 → ¥499剪辑营/¥888咨询 → ¥5200私教(1年) → 终身社群\n\n## 产品一：播客变现私教 ¥5200\n一年陪跑+终身社群。不限次1v1+专属档案+圆桌社群+训练营复训+线下聚会+分销权益。\n适合：医美/保险/金融/玄学/留学/情感/加盟等被限流或产品复杂的老板。\n\n## 产品二：播客剪辑营 ¥499\n21天从0到1接单，完成作业返现100元，适合副业小白/大学生/职场人。\n\n## 产品三：年度社群 ¥299\n每月8号1v1直播连线，可抵扣升级其他产品。\n\n## 产品四：私密咨询 ¥888/次\n单次商业路径梳理，可抵扣私教。\n\n## 选品参考\n没方向想副业 → 社群→剪辑营\n有业务想引流 → 咨询→私教\n转介绍来的 → 直推私教或咨询转化\n明确学剪辑 → 剪辑营'}
+    ],
+    script: [
+      {name:'话术·1️⃣建立连接同步信息（45条）', content:'见子页面完整内容'},
+      {name:'话术·2️⃣挖掘需求（67条）', content:'见子页面完整内容'},
+      {name:'话术·3️⃣解决顾虑（62条）', content:'见子页面完整内容'},
+      {name:'话术·4️⃣最后成交（25条）', content:'见子页面完整内容'}
+    ],
+    tutorial: [
+      {name:'搞钱搞流量·谈单留钩子（第1课）', content:'# 核心技巧速查\n\n等价交换：每个行动指令配奖励，给予vs索取分清\n封闭式选项：挖需求给1/2/3让客户选，降门槛\n肯定需求：帮客户把模糊需求变板上钉钉\n极限场景：把日常问题拉到最坏结果，恐惧→希望\n愿景钩子："到时候…"场景印心里变心锚\n残缺效应：永远留底牌让对方来找你\n隔山打牛：给客户说服第三方的话术\n成交梯度钩子：低价成交后说可补差价升级\n可聊不交付：成交前只描述结果不给方案\n极限一换一：每客户带一新客户，生意二倍增量\n超级节点：维护链接能力强的客户\n成交进度条：所有营销动作都在推进0→100%'}
+    ]
+  };
 }
 
 let tabs = loadData();
@@ -998,10 +1128,27 @@ async function callAI(cfg, userMsg, systemPrompt) {
 
 function buildKBContext() {
   const parts = [];
-  if (kb.product.length) parts.push(`【武器库·产品库】\n${kb.product.map(i => i.name + '：' + i.content).join('\n')}`);
-  if (kb.script.length) parts.push(`【技能书·话术库】\n${kb.script.map(i => i.name + '：' + i.content).join('\n')}`);
-  if (kb.tutorial.length) parts.push(`【秘籍·教程库】\n${kb.tutorial.map(i => i.name + '：' + i.content).join('\n')}`);
-  return parts.length ? '\n知识库：\n' + parts.join('\n\n') : '';
+  const tab = getActiveTab();
+  const stageName = tab?.type === 'customer' ? STAGES[tab.stage] : null;
+
+  if (kb.product.length) {
+    parts.push(`【产品库】\n${kb.product.map(i => i.name + '：' + i.content).join('\n')}`);
+  }
+
+  if (kb.script.length) {
+    // Only inject scripts matching current stage; if no stage match, inject all
+    const stageScripts = stageName
+      ? kb.script.filter(i => i.name.includes(stageName))
+      : kb.script;
+    const scripts = stageScripts.length ? stageScripts : kb.script;
+    parts.push(`【话术库${stageName ? '·' + stageName : ''}】\n${scripts.map(i => i.name + '：' + i.content).join('\n')}`);
+  }
+
+  if (kb.tutorial.length) {
+    parts.push(`【教程库】\n${kb.tutorial.map(i => i.name + '：' + i.content).join('\n')}`);
+  }
+
+  return parts.length ? '\n\n---知识库---\n' + parts.join('\n\n') : '';
 }
 
 // ---- SETTINGS ----
@@ -1076,11 +1223,78 @@ function renderKB() {
     if (kb[type].length === 0) {
       listEl.innerHTML = '<div class="kb-empty">宝库空空，等待收录...</div>';
     } else {
-      listEl.innerHTML = kb[type].map(item =>
-        `<div class="kb-item">▸ ${item.name}</div>`
+      listEl.innerHTML = kb[type].map((item, idx) =>
+        `<div class="kb-item" onclick="openKBPage('${type}', ${idx})">
+          <span class="kb-item-name">▸ ${item.name}</span>
+          <span class="kb-item-del" onclick="event.stopPropagation();deleteKBItem('${type}',${idx})">✕</span>
+        </div>`
       ).join('');
     }
   });
+}
+
+// ---- KB SUBPAGE ----
+const KB_LABELS = { product: '🗡 武器库', script: '📜 技能书', tutorial: '📖 秘籍' };
+let currentKBType = null;
+
+function openKBPage(type, focusIdx) {
+  currentKBType = type;
+  document.getElementById('kbSubpageTitle').textContent = KB_LABELS[type];
+  document.getElementById('kbSubpageSaveBtn').onclick = () => saveTo(type);
+  renderKBSubpage(type, focusIdx);
+  document.getElementById('kbSubpage').classList.add('show');
+}
+
+function closeKBPage() {
+  document.getElementById('kbSubpage').classList.remove('show');
+  currentKBType = null;
+}
+
+function renderKBSubpage(type, focusIdx) {
+  const body = document.getElementById('kbSubpageBody');
+  const items = kb[type];
+  if (items.length === 0) {
+    body.innerHTML = '<div class="kb-empty" style="padding:20px">宝库空空，从主页面出击后存入宝库</div>';
+    return;
+  }
+  body.innerHTML = items.map((item, idx) => `
+    <div class="kb-entry px-box" id="kbEntry_${idx}">
+      <div class="kb-entry-header" onclick="toggleKBEntry(${idx})">
+        <span class="kb-entry-name">▸ ${item.name}</span>
+        <span class="kb-entry-actions">
+          <span class="kb-entry-toggle" id="kbToggle_${idx}">▼</span>
+          <button class="kb-entry-del-btn" onclick="event.stopPropagation();deleteKBItem('${type}',${idx},true)">删除</button>
+        </span>
+      </div>
+      <div class="kb-entry-content ${focusIdx === idx ? 'open' : ''}" id="kbContent_${idx}">${escHtml(item.content)}</div>
+    </div>
+  `).join('');
+
+  if (focusIdx !== undefined) {
+    setTimeout(() => {
+      const el = document.getElementById(`kbEntry_${focusIdx}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+}
+
+function toggleKBEntry(idx) {
+  const content = document.getElementById(`kbContent_${idx}`);
+  const toggle = document.getElementById(`kbToggle_${idx}`);
+  const isOpen = content.classList.toggle('open');
+  toggle.textContent = isOpen ? '▲' : '▼';
+}
+
+function deleteKBItem(type, idx, fromSubpage) {
+  if (!confirm(`删除「${kb[type][idx].name}」？`)) return;
+  kb[type].splice(idx, 1);
+  saveData();
+  renderKB();
+  if (fromSubpage) renderKBSubpage(type);
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // ---- DAILY TASKS ----
