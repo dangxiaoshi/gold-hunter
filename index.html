@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>金币猎人</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@400&display=swap');
 
   :root {
     --gold: #f0c040;
@@ -28,7 +28,7 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Press Start 2P', monospace;
+    font-family: 'Press Start 2P', 'Noto Sans SC', 'PingFang SC', monospace;
     font-size: 12px;
     min-height: 100vh;
     padding: 0;
@@ -146,7 +146,7 @@
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto 1fr auto;
     gap: 10px;
-    min-height: 600px;
+    height: 600px;
   }
 
   /* ---- TABS ---- */
@@ -222,6 +222,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
   }
   .panel-label {
     font-size: 9px;
@@ -234,12 +235,12 @@
     background: rgba(6, 4, 1, 0.75);
     border: var(--pixel) solid #4a3018;
     color: #f0e0b0;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 11px;
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Press Start 2P', monospace;
+    font-size: 13px;
     padding: 10px;
     resize: none;
     width: 100%;
-    line-height: 2;
+    line-height: 1.8;
     flex: 1;
     overflow-y: scroll;
     height: 0;
@@ -258,6 +259,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
   }
   .output-box {
     background: rgba(6, 4, 1, 0.75);
@@ -265,8 +267,9 @@
     padding: 12px;
     flex: 1;
     overflow-y: scroll;
-    font-size: 11px;
-    line-height: 1.6;
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Press Start 2P', monospace;
+    font-size: 13px;
+    line-height: 1.8;
     color: #b8e090;
     height: 0;
   }
@@ -577,10 +580,20 @@
   .win-close:hover { background: var(--gold); }
 
   /* scrollbar */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: #0a0700; }
-  ::-webkit-scrollbar-thumb { background: #3a2a12; border: 1px solid #000; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--orange); }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #1a1008; border-left: 1px solid #3a2a12; }
+  ::-webkit-scrollbar-thumb { background: var(--orange); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+  /* force classic (non-overlay) scrollbar on output box */
+  #outputBox {
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange) #1a1008;
+    scrollbar-gutter: stable;
+  }
+  #outputBox::-webkit-scrollbar { width: 8px; }
+  #outputBox::-webkit-scrollbar-track { background: #1a1008; }
+  #outputBox::-webkit-scrollbar-thumb { background: var(--orange); border-radius: 2px; min-height: 40px; }
 </style>
 </head>
 <body>
@@ -617,10 +630,23 @@
       <input id="modelInput" type="text" placeholder="claude-sonnet-4-6" class="settings-input">
     </div>
     <div id="settingsStatus" style="font-size:8px;color:var(--green);min-height:14px;margin-bottom:8px"></div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;margin-bottom:16px">
       <button class="modal-close" onclick="saveSettings()">保存</button>
       <button class="modal-close" onclick="testConnection()" style="border-color:var(--green);color:var(--green)">测试连接</button>
       <button class="modal-close" onclick="closeSettings()" style="border-color:#555;color:#555">取消</button>
+    </div>
+    <div style="border-top:1px solid #3a2a12;padding-top:14px;margin-top:4px">
+      <div style="font-size:8px;color:var(--orange-bright);margin-bottom:10px;letter-spacing:1px">☁ 云端同步（GitHub Gist）</div>
+      <div class="settings-row">
+        <div class="settings-label">GitHub Token</div>
+        <input id="gistTokenInput" type="password" placeholder="ghp_..." class="settings-input">
+      </div>
+      <div id="gistStatus" style="font-size:8px;color:var(--text-dim);min-height:14px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="modal-close" onclick="uploadToGist()" style="border-color:var(--gold);color:var(--gold)">☁ 上传到云端</button>
+        <button class="modal-close" onclick="loadFromGist()" style="border-color:#4a8a4a;color:#7ecf5a">⬇ 从云端恢复</button>
+      </div>
+      <div style="font-size:7px;color:#4a3a22;margin-top:8px">Token 获取：GitHub → Settings → Developer settings → Personal access tokens → 勾选 gist 权限</div>
     </div>
   </div>
 </div>
@@ -1160,6 +1186,8 @@ function openSettings() {
   document.getElementById('baseUrlInput').value = cfg.base || p.base;
   document.getElementById('modelInput').value = cfg.model || p.model;
   document.getElementById('settingsStatus').textContent = '';
+  document.getElementById('gistTokenInput').value = localStorage.getItem('gh_gist_token') || '';
+  document.getElementById('gistStatus').textContent = localStorage.getItem('gh_gist_id') ? '✓ 已绑定 Gist，可直接上传/恢复' : '尚未同步过';
   document.getElementById('settingsModal').classList.add('show');
 }
 function closeSettings() {
@@ -1178,6 +1206,8 @@ function saveSettings() {
     model: document.getElementById('modelInput').value.trim()
   };
   saveCfg(cfg);
+  const token = document.getElementById('gistTokenInput').value.trim();
+  if (token) localStorage.setItem('gh_gist_token', token);
   closeSettings();
 }
 async function testConnection() {
@@ -1198,6 +1228,66 @@ async function testConnection() {
     status.style.color = 'var(--red)';
     status.textContent = '✗ ' + e.message.slice(0, 60);
   }
+}
+
+// ---- GIST SYNC ----
+async function uploadToGist() {
+  const token = document.getElementById('gistTokenInput').value.trim() || localStorage.getItem('gh_gist_token');
+  if (!token) { setGistStatus('请先填入 GitHub Token', 'red'); return; }
+
+  setGistStatus('上传中...', 'gold');
+  const payload = JSON.stringify({ tabs, kb }, null, 2);
+  const gistId = localStorage.getItem('gh_gist_id');
+  const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
+  const method = gistId ? 'PATCH' : 'POST';
+  const body = {
+    description: '金币猎人数据备份',
+    public: false,
+    files: { 'gold-hunter-data.json': { content: payload } }
+  };
+  try {
+    const res = await fetch(url, { method, headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`GitHub 返回 ${res.status}`);
+    const data = await res.json();
+    localStorage.setItem('gh_gist_id', data.id);
+    localStorage.setItem('gh_gist_token', token);
+    setGistStatus(`✓ 上传成功！Gist ID: ${data.id.slice(0,8)}...`, 'green');
+  } catch(e) {
+    setGistStatus('✗ 上传失败：' + e.message, 'red');
+  }
+}
+
+async function loadFromGist() {
+  const token = document.getElementById('gistTokenInput').value.trim() || localStorage.getItem('gh_gist_token');
+  const gistId = localStorage.getItem('gh_gist_id');
+  if (!token) { setGistStatus('请先填入 GitHub Token', 'red'); return; }
+  if (!gistId) { setGistStatus('还没有上传过，先上传一次', 'red'); return; }
+
+  setGistStatus('加载中...', 'gold');
+  try {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers: { Authorization: `token ${token}` } });
+    if (!res.ok) throw new Error(`GitHub 返回 ${res.status}`);
+    const data = await res.json();
+    const content = data.files['gold-hunter-data.json']?.content;
+    if (!content) throw new Error('Gist 里没有找到数据文件');
+    const parsed = JSON.parse(content);
+    tabs = parsed.tabs || tabs;
+    kb = parsed.kb || kb;
+    activeTabId = tabs[0]?.id || null;
+    saveData();
+    renderTabs();
+    renderKB();
+    document.getElementById('inputBox').value = getActiveTab()?.content || '';
+    setGistStatus('✓ 恢复成功！数据已加载', 'green');
+  } catch(e) {
+    setGistStatus('✗ 加载失败：' + e.message, 'red');
+  }
+}
+
+function setGistStatus(msg, color) {
+  const el = document.getElementById('gistStatus');
+  el.textContent = msg;
+  el.style.color = color === 'green' ? 'var(--green)' : color === 'red' ? 'var(--red)' : 'var(--gold)';
 }
 
 // ---- SAVE TO KB ----
