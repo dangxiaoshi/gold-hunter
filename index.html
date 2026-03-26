@@ -146,7 +146,7 @@
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto 1fr auto;
     gap: 10px;
-    height: 600px;
+    height: 1500px;
   }
 
   /* ---- TABS ---- */
@@ -355,6 +355,7 @@
     font-size: 10px;
     color: #8a7a5a;
     line-height: 2;
+    font-family: 'Noto Sans SC', 'PingFang SC', monospace;
   }
   .kb-item {
     padding: 3px 4px;
@@ -877,6 +878,15 @@ function makeTabEl(tab, isFolder, isChild = false) {
 
   const nameSpan = document.createElement('span');
   nameSpan.textContent = tab.name;
+  nameSpan.ondblclick = (e) => {
+    e.stopPropagation();
+    const newName = prompt('修改标签名称：', tab.name);
+    if (newName && newName.trim()) {
+      tab.name = newName.trim();
+      saveData();
+      renderTabs();
+    }
+  };
   el.appendChild(nameSpan);
 
   const closeSpan = document.createElement('span');
