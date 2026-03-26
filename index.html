@@ -899,13 +899,30 @@ function makeTabEl(tab, isFolder, isChild = false) {
     if (isFolder) {
       folderOpen[tab.id] = !folderOpen[tab.id];
     } else {
-      // save current input before switching
+      // save current input+output before switching
       const cur = getActiveTab();
-      if (cur) cur.content = document.getElementById('inputBox').value;
+      if (cur) {
+        cur.content = document.getElementById('inputBox').value;
+        cur.output = outputContent;
+      }
       activeTabId = tab.id;
       // load new tab content
       const next = getActiveTab();
       document.getElementById('inputBox').value = next?.content || '';
+      outputContent = next?.output || '';
+      const box = document.getElementById('outputBox');
+      if (outputContent) {
+        box.innerHTML = '';
+        outputContent.split('\n').forEach(line => {
+          if (!line.trim()) { box.appendChild(document.createElement('br')); return; }
+          const el = document.createElement('div');
+          if (line.startsWith('##')) { el.className = 'section-title'; el.textContent = line.replace(/^##\s*/, ''); }
+          else { el.className = 'ai-line'; el.textContent = line; }
+          box.appendChild(el);
+        });
+      } else {
+        box.innerHTML = '<span class="placeholder">点击「出击」，AI 将根据情报给出战术指令...</span>';
+      }
       saveData();
     }
     renderTabs();
@@ -1040,6 +1057,8 @@ ${buildKBContext()}
       outputContent += chunk;
       renderStreamChunk(box, chunk);
     });
+    const cur = getActiveTab();
+    if (cur) { cur.output = outputContent; saveData(); }
   } catch(e) {
     const msg = e.name === 'AbortError' ? '请求超时，请重试' : e.message;
     box.innerHTML = `<span style="color:var(--red)">出击失败：${msg}</span>`;
