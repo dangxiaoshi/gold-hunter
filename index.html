@@ -1259,12 +1259,22 @@ async function uploadToGist() {
 
 async function loadFromGist() {
   const token = document.getElementById('gistTokenInput').value.trim() || localStorage.getItem('gh_gist_token');
-  const gistId = localStorage.getItem('gh_gist_id');
   if (!token) { setGistStatus('请先填入 GitHub Token', 'red'); return; }
-  if (!gistId) { setGistStatus('还没有上传过，先上传一次', 'red'); return; }
 
-  setGistStatus('加载中...', 'gold');
+  setGistStatus('查找云端数据...', 'gold');
   try {
+    // 先看本地有没有存 Gist ID，没有就去列表里搜
+    let gistId = localStorage.getItem('gh_gist_id');
+    if (!gistId) {
+      const listRes = await fetch('https://api.github.com/gists?per_page=100', { headers: { Authorization: `token ${token}` } });
+      if (!listRes.ok) throw new Error(`GitHub 返回 ${listRes.status}`);
+      const list = await listRes.json();
+      const found = list.find(g => g.files && g.files['gold-hunter-data.json']);
+      if (!found) { setGistStatus('云端没有找到备份，请先上传一次', 'red'); return; }
+      gistId = found.id;
+      localStorage.setItem('gh_gist_id', gistId);
+    }
+
     const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers: { Authorization: `token ${token}` } });
     if (!res.ok) throw new Error(`GitHub 返回 ${res.status}`);
     const data = await res.json();
