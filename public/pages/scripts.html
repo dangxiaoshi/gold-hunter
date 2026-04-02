@@ -4,16 +4,659 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>话术库 — 金币猎人 2.0</title>
-  <link rel="stylesheet" href="../style.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #141414; color: #d0d0d0; font-family: system-ui, -apple-system, sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* ── 顶栏 ── */
+    #topbar { height: 40px; background: #181818; border-bottom: 1px solid #242424; display: flex; align-items: center; padding: 0 14px; gap: 12px; flex-shrink: 0; }
+    #topbar .title { font-size: 13px; font-weight: 600; color: #d0d0d0; }
+    #topbar .search { flex: 1; max-width: 280px; background: #222; border: 1px solid #2a2a2a; border-radius: 5px; padding: 4px 10px; font-size: 12px; color: #d0d0d0; outline: none; }
+    #topbar .search::placeholder { color: #484848; }
+    #topbar .search:focus { border-color: #3a3a3a; }
+    #topbar .add-btn { margin-left: auto; background: #f0a500; border: none; color: #7a4f00; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 4px; cursor: pointer; }
+    #topbar .add-btn:hover { background: #ffb820; }
+
+    /* ── 三栏 ── */
+    #layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── 左栏：产品树 ── */
+    #left-col { width: 190px; flex-shrink: 0; background: #1c1c1c; border-right: 1px solid #252525; overflow-y: auto; }
+    #left-col::-webkit-scrollbar { width: 4px; } #left-col::-webkit-scrollbar-thumb { background: #2a2a2a; }
+
+    .section-label { font-size: 10px; color: #404040; letter-spacing: 1px; padding: 12px 14px 6px; }
+
+    .product-item { cursor: pointer; }
+    .product-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px; color: #707070; transition: background 0.15s; user-select: none; }
+    .product-header:hover { background: #202020; }
+    .product-header.active { color: #d0d0d0; }
+    .product-header .icon { font-size: 13px; flex-shrink: 0; }
+    .product-header .name { flex: 1; }
+    .product-header .chevron { font-size: 9px; color: #404040; transition: transform 0.2s; }
+    .product-header.open .chevron { transform: rotate(90deg); }
+    .product-header .total { font-size: 10px; color: #404040; }
+
+    .stage-list { display: none; }
+    .stage-list.open { display: block; }
+    .stage-item { display: flex; align-items: center; padding: 6px 12px 6px 32px; font-size: 11px; color: #585858; cursor: pointer; transition: background 0.15s; }
+    .stage-item:hover { background: #1e1e1e; color: #909090; }
+    .stage-item.active { background: #1e1e1e; color: #d8d8d8; position: relative; }
+    .stage-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #f0a500; }
+    .stage-item .s-icon { margin-right: 6px; }
+    .stage-item .s-name { flex: 1; }
+    .stage-item .s-count { font-size: 10px; color: #f0a500; }
+    .stage-item.active .s-count { color: #f0a500; }
+
+    /* ── 中栏：话术列表 ── */
+    #mid-col { flex: 1; min-width: 0; overflow-y: auto; padding: 0; background: #141414; }
+    #mid-col::-webkit-scrollbar { width: 4px; } #mid-col::-webkit-scrollbar-thumb { background: #2a2a2a; }
+
+    .mid-header { height: 36px; background: #181818; border-bottom: 1px solid #222; display: flex; align-items: center; padding: 0 14px; font-size: 13px; color: #d0d0d0; font-weight: 500; flex-shrink: 0; position: sticky; top: 0; z-index: 10; }
+    .mid-header .h-label { flex: 1; }
+    .mid-header .h-add { font-size: 11px; color: #f0a500; cursor: pointer; }
+    .mid-header .h-add:hover { color: #ffb820; }
+
+    .script-cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+    .script-card { background: #191919; border: 1px solid #252525; border-radius: 6px; padding: 12px 14px; cursor: default; transition: border-color 0.15s; }
+    .script-card:hover { border-color: #303030; }
+    .script-card.selected { border-color: #f0a500; background: #1e1e1e; }
+
+    .card-tags { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+    .tag { font-size: 9px; padding: 2px 7px; border-radius: 3px; background: #242424; color: #606060; }
+    .tag.stage-tag { background: #1e1800; color: #f0a500; }
+    .tag.product-tag { background: #242424; color: #606060; }
+
+    .card-content { font-size: 12px; color: #c0c0c0; line-height: 1.6; white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow: hidden; }
+    .card-content.expanded { max-height: none; }
+    .card-expand { font-size: 10px; color: #404040; cursor: pointer; margin-top: 4px; }
+    .card-expand:hover { color: #606060; }
+
+    .card-footer { display: flex; align-items: center; margin-top: 10px; gap: 8px; }
+    .card-stats { font-size: 10px; color: #484848; flex: 1; }
+    .card-stats span { margin-right: 12px; }
+    .btn-edit { font-size: 10px; background: #222; border: none; color: #606060; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+    .btn-edit:hover { background: #2a2a2a; color: #909090; }
+    .btn-shoot { font-size: 10px; background: #f0a500; border: none; color: #7a4f00; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .btn-shoot:hover { background: #ffb820; }
+    .btn-delete { font-size: 10px; background: none; border: none; color: #404040; padding: 4px 6px; cursor: pointer; }
+    .btn-delete:hover { color: #e05050; }
+
+    .empty-state { padding: 40px 20px; text-align: center; color: #404040; font-size: 13px; }
+    .empty-state .e-icon { font-size: 28px; margin-bottom: 8px; }
+    .empty-state .e-btn { display: inline-block; margin-top: 12px; background: #1e1e1e; border: 1px dashed #2a2a2a; color: #505050; font-size: 12px; padding: 7px 16px; border-radius: 5px; cursor: pointer; }
+    .empty-state .e-btn:hover { border-color: #404040; color: #707070; }
+
+    /* ── 右栏：AI推荐 ── */
+    #right-col { width: 360px; flex-shrink: 0; background: #0d0d0d; border-left: 1px solid #1e1e1e; overflow-y: auto; display: flex; flex-direction: column; }
+    #right-col::-webkit-scrollbar { width: 4px; } #right-col::-webkit-scrollbar-thumb { background: #222; }
+
+    .right-header { padding: 10px 14px 8px; background: #111; border-bottom: 1px solid #1a1a1a; font-size: 11px; color: #404040; flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+    .right-header .rh-title { flex: 1; }
+    .right-header .rh-hint { font-size: 10px; color: #303030; }
+
+    .right-context { padding: 10px 14px; border-bottom: 1px solid #1a1a1a; font-size: 11px; color: #484848; font-family: monospace; }
+    .right-context .ctx-line { margin-bottom: 4px; }
+    .right-context .ctx-stage { color: #f0a500; }
+
+    .right-section { padding: 12px 14px 6px; font-size: 11px; color: #f0a500; font-family: monospace; }
+
+    .rec-card { margin: 6px 14px; background: #141414; border: 1px solid #222; border-radius: 5px; padding: 10px 12px; }
+    .rec-card.best { background: #191600; border-color: #f0a500; }
+    .rec-card .rc-meta { font-size: 10px; color: #505050; margin-bottom: 6px; }
+    .rec-card.best .rc-meta { color: #f0a500; }
+    .rec-card .rc-content { font-size: 11px; color: #707070; line-height: 1.5; }
+    .rec-card.best .rc-content { color: #c0c0c0; }
+    .rec-card .rc-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+    .rc-use-btn { font-size: 10px; background: #1e1e1e; border: none; color: #505050; padding: 3px 10px; border-radius: 3px; cursor: pointer; }
+    .rec-card.best .rc-use-btn { background: #f0a500; color: #7a4f00; font-weight: 600; }
+    .rc-use-btn:hover { opacity: 0.8; }
+
+    .stats-block { margin: 12px 14px; padding: 12px; background: #111; border-radius: 5px; border: 1px solid #1e1e1e; }
+    .stats-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-family: monospace; font-size: 11px; }
+    .stats-row .sk { color: #484848; }
+    .stats-row .sv { color: #d0d0d0; }
+    .stats-row .sv.gold { color: #f0a500; }
+
+    .add-custom { margin: 12px 14px; }
+    .add-custom .ac-label { font-size: 10px; color: #383838; margin-bottom: 6px; font-family: monospace; }
+    .add-custom textarea { width: 100%; background: #111; border: 1px solid #222; border-radius: 5px; color: #606060; font-size: 11px; padding: 8px 10px; resize: none; outline: none; font-family: system-ui; }
+    .add-custom textarea:focus { border-color: #2a2a2a; }
+    .add-custom .ac-actions { display: flex; justify-content: flex-end; margin-top: 6px; }
+    .ac-save-btn { font-size: 10px; background: #1e1e1e; border: none; color: #505050; padding: 4px 12px; border-radius: 3px; cursor: pointer; }
+    .ac-save-btn:hover { background: #252525; color: #707070; }
+
+    /* ── 模态框 ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 8px; width: 520px; max-width: 95vw; max-height: 85vh; overflow-y: auto; }
+    .modal-header { padding: 16px 18px 12px; border-bottom: 1px solid #252525; display: flex; align-items: center; }
+    .modal-header h3 { font-size: 14px; font-weight: 600; color: #d0d0d0; flex: 1; }
+    .modal-close { background: none; border: none; color: #484848; font-size: 18px; cursor: pointer; line-height: 1; }
+    .modal-close:hover { color: #909090; }
+    .modal-body { padding: 16px 18px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 11px; color: #606060; margin-bottom: 5px; }
+    .form-group select, .form-group input, .form-group textarea { width: 100%; background: #181818; border: 1px solid #2a2a2a; border-radius: 5px; color: #d0d0d0; font-size: 13px; padding: 7px 10px; outline: none; font-family: system-ui; }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: #f0a500; }
+    .form-group textarea { resize: vertical; min-height: 160px; line-height: 1.6; }
+    .modal-footer { padding: 12px 18px 16px; border-top: 1px solid #252525; display: flex; justify-content: flex-end; gap: 8px; }
+    .btn-cancel { background: #222; border: none; color: #606060; font-size: 13px; padding: 7px 16px; border-radius: 5px; cursor: pointer; }
+    .btn-cancel:hover { background: #2a2a2a; }
+    .btn-save { background: #f0a500; border: none; color: #7a4f00; font-size: 13px; font-weight: 600; padding: 7px 18px; border-radius: 5px; cursor: pointer; }
+    .btn-save:hover { background: #ffb820; }
+
+    .copied-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #f0a500; color: #7a4f00; font-size: 12px; font-weight: 600; padding: 7px 16px; border-radius: 5px; z-index: 200; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+    .copied-toast.show { opacity: 1; }
+  </style>
 </head>
 <body>
-<div id="page-scripts">
-  <!-- 业务逻辑待填入 -->
-  <div class="page-placeholder">
-    <span class="icon">📝</span>
-    <p>话术库</p>
+
+<!-- 顶栏 -->
+<div id="topbar">
+  <span class="title">📝 话术库</span>
+  <input type="text" class="search" id="searchInput" placeholder="🔍 搜索话术内容...">
+  <button class="add-btn" onclick="openModal()">＋ 添加话术</button>
+</div>
+
+<!-- 三栏布局 -->
+<div id="layout">
+
+  <!-- 左栏：产品树 -->
+  <div id="left-col">
+    <div class="section-label">产品分类</div>
+    <div id="product-tree"></div>
+  </div>
+
+  <!-- 中栏：话术列表 -->
+  <div id="mid-col">
+    <div class="mid-header">
+      <span class="h-label" id="midLabel">全部话术</span>
+      <span class="h-add" onclick="openModal()">＋ 添加</span>
+    </div>
+    <div class="script-cards" id="scriptCards"></div>
+  </div>
+
+  <!-- 右栏：AI推荐 -->
+  <div id="right-col">
+    <div class="right-header">
+      <span class="rh-title">⚡ AI 推荐</span>
+      <span class="rh-hint" id="matchHint">按当前客户匹配</span>
+    </div>
+    <div class="right-context" id="rightContext">
+      <div class="ctx-line">当前客户：<span id="ctxCustomer">—</span></div>
+      <div class="ctx-line">产品：<span id="ctxProduct">—</span> &nbsp; 阶段：<span class="ctx-stage" id="ctxStage">—</span></div>
+    </div>
+    <div class="right-section">▶ 最匹配话术</div>
+    <div id="recCards"></div>
+    <div class="right-section" style="margin-top:4px;">▶ 本月战绩</div>
+    <div class="stats-block">
+      <div class="stats-row"><span class="sk">话术使用总次数</span><span class="sv" id="statTotal">0 次</span></div>
+      <div class="stats-row"><span class="sk">平均成交率</span><span class="sv gold" id="statRate">—</span></div>
+      <div class="stats-row"><span class="sk">最有效话术</span><span class="sv" id="statBest" style="font-size:10px;text-align:right;max-width:160px;">—</span></div>
+    </div>
+    <div class="add-custom">
+      <div class="ac-label">＋ 快速收录有效话术</div>
+      <textarea id="quickAdd" rows="3" placeholder="输入你自己总结的有效话术，选好产品和阶段后保存..."></textarea>
+      <div class="ac-actions"><button class="ac-save-btn" onclick="quickSave()">💾 保存到当前分类</button></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 模态框：添加/编辑 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">添加话术</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>产品</label>
+        <select id="fProduct"></select>
+      </div>
+      <div class="form-group">
+        <label>阶段</label>
+        <select id="fStage"></select>
+      </div>
+      <div class="form-group">
+        <label>话术内容</label>
+        <textarea id="fContent" placeholder="输入话术文本，支持多行。可以是一段完整的对话，也可以是简短的一句话。"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" onclick="saveScript()">保存</button>
+    </div>
   </div>
 </div>
-<script src="../app.js"></script>
+
+<div class="copied-toast" id="copiedToast">已复制 🏹</div>
+
+<script>
+// ── 常量 ──
+const PRODUCTS = ['播客私教', '播客剪辑营', '年度社群', '私密咨询'];
+const PRODUCT_ICONS = { '播客私教': '🎙️', '播客剪辑营': '✂️', '年度社群': '👥', '私密咨询': '🔐' };
+const STAGES = ['建立链接', '同步信息', '挖掘需求', '解决顾虑', '达成成交'];
+const STAGE_ICONS = { '建立链接': '🤝', '同步信息': '📋', '挖掘需求': '🔍', '解决顾虑': '🛡️', '达成成交': '💰' };
+const STORAGE_KEY = 'gh_scripts_v2';
+
+// ── 状态 ──
+let data = loadData();
+let selectedProduct = null;
+let selectedStage = null;
+let editingId = null;
+let searchQuery = '';
+
+// ── 数据 ──
+function loadData() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return { scripts: getDefaultScripts() };
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function getDefaultScripts() {
+  return [
+    // 播客私教 × 建立链接
+    { id: 1, product: '播客私教', stage: '建立链接', content: '「你好！你是怎么知道我的？」\n\n（简单，但好用——让对方先说，你来听。）', useCount: 0, rate: 0 },
+    { id: 2, product: '播客私教', stage: '建立链接', content: '「你好，我是当小时，做播客变现教练的，很高兴认识你～看到你朋友圈在做[业务]，我做了5年播客，聊过很多做这行的，好奇你现在主要用什么方式获客？」', useCount: 0, rate: 0 },
+    { id: 3, product: '播客私教', stage: '建立链接', content: '「你做的这个方向，其实很适合播客，因为[具体原因]。难得遇到真的在认真做内容的人，多交流一下吧。」\n\n「你要不先关注一下我的播客，我最近刚出了一期讲[话题]的，跟你现在的情况很像。」', useCount: 0, rate: 0 },
+
+    // 播客私教 × 同步信息
+    { id: 4, product: '播客私教', stage: '同步信息', content: '「你现在主要做什么方向的内容？」\n「你的客户主要从哪里来？」\n「你有没有在做公域内容？小红书/抖音/播客这些？」\n「你是自己在做，还是有团队？」', useCount: 0, rate: 0 },
+    { id: 5, product: '播客私教', stage: '同步信息', content: '「我专门帮[行业]老板用播客做引流，不用拍脸不用剪辑，一期节目能带几十个精准客户过来。」\n\n「我有个学员做医美的，两位数播放量，卖出了2980的课，因为听众全是精准的。」', useCount: 0, rate: 0 },
+    { id: 6, product: '播客私教', stage: '同步信息', content: '「播客跟短视频不一样，它沉淀的是真正信任你的人，不是刷过去就忘了的流量。」\n\n「你现在每个月获客主要靠什么渠道？大概花多少时间和钱？」', useCount: 0, rate: 0 },
+
+    // 播客私教 × 挖掘需求
+    { id: 7, product: '播客私教', stage: '挖掘需求', content: '「你觉得现在最大的卡点是什么？是没流量，还是有流量但转化不了？」\n\n「你有没有遇到过这种情况：你说了很多，但对方就是不买，不知道哪里没说到位？」', useCount: 0, rate: 0 },
+    { id: 8, product: '播客私教', stage: '挖掘需求', content: '「如果获客这件事一直没有解决，你觉得一年后会怎样？」\n\n（极限场景——先把问题拉到最坏，恐惧出来了，希望才有地方落。）', useCount: 0, rate: 0 },
+    { id: 9, product: '播客私教', stage: '挖掘需求', content: '「你理想中，一个月成交多少单是你满意的？」\n「如果播客能稳定给你带来[X]个精准客户，你觉得值多少钱？」\n「你做播客，最想达到什么结果？是涨粉、成交，还是建立行业影响力？」', useCount: 0, rate: 0 },
+
+    // 播客私教 × 解决顾虑
+    { id: 10, product: '播客私教', stage: '解决顾虑', content: '「我理解你的感受，很多学员一开始也觉得贵。你算一算，5200除以365，每天14块多。一杯奶茶都不到。你现在做一单能赚多少？只要私教帮你多做成一单，就回本了。」', useCount: 47, rate: 68 },
+    { id: 11, product: '播客私教', stage: '解决顾虑', content: '「可以，你具体在考虑哪里？是价格，还是不确定适不适合你？」\n\n（追问，不要放手。不追问的话，「我再想想」就是永远消失。）', useCount: 31, rate: 54 },
+    { id: 12, product: '播客私教', stage: '解决顾虑', content: '「我们不是让你从头学，是帮你把现有的内容变成有效的引流工具。你每周花1小时录一期，其他的我们帮你。」\n\n「你现在花时间在哪里？如果有一件事能帮你省掉很多无效时间，你愿不愿意花时间了解一下？」', useCount: 22, rate: 41 },
+
+    // 播客私教 × 达成成交
+    { id: 13, product: '播客私教', stage: '达成成交', content: '「我现在私教名额只剩2个，下个月可能要涨价，你这边要确定的话今天可以先锁定。」\n\n「这个价格是老学员内部价，你是[来源]过来的，我给你这个价格。」', useCount: 0, rate: 0 },
+    { id: 14, product: '播客私教', stage: '达成成交', content: '「这样，你今天先付个定金把名额锁住，具体开始时间我们再约，你看可以吗？」\n\n「你微信支付还是支付宝？我发你。」\n\n（默认对方要付，直接问方式，不再给对方纠结的机会。）', useCount: 0, rate: 0 },
+    { id: 15, product: '播客私教', stage: '达成成交', content: '「要不这样，你先进社群¥299，我们先聊起来，觉得合适了再说私教。¥299可以抵扣的。」\n\n「你先报个体验咨询¥888，我帮你把方向梳理清楚，你再决定要不要继续，¥888也是可以抵扣的。」', useCount: 18, rate: 38 },
+  ];
+}
+
+// ── 渲染：产品树 ──
+function renderTree() {
+  const tree = document.getElementById('product-tree');
+  tree.innerHTML = '';
+
+  PRODUCTS.forEach(product => {
+    const scripts = data.scripts.filter(s => s.product === product);
+    const totalCount = scripts.length;
+
+    const item = document.createElement('div');
+    item.className = 'product-item';
+
+    const header = document.createElement('div');
+    header.className = 'product-header' +
+      (selectedProduct === product ? ' active' : '') +
+      (selectedProduct === product ? ' open' : '');
+    header.innerHTML = `
+      <span class="icon">${PRODUCT_ICONS[product]}</span>
+      <span class="name">${product}</span>
+      <span class="total">${totalCount}</span>
+      <span class="chevron">▶</span>
+    `;
+
+    const stageList = document.createElement('div');
+    stageList.className = 'stage-list' + (selectedProduct === product ? ' open' : '');
+
+    STAGES.forEach(stage => {
+      const count = scripts.filter(s => s.stage === stage).length;
+      const si = document.createElement('div');
+      si.className = 'stage-item' + (selectedProduct === product && selectedStage === stage ? ' active' : '');
+      si.innerHTML = `
+        <span class="s-icon">${STAGE_ICONS[stage]}</span>
+        <span class="s-name">${stage}</span>
+        <span class="s-count">${count || ''}</span>
+      `;
+      si.onclick = (e) => {
+        e.stopPropagation();
+        selectedProduct = product;
+        selectedStage = stage;
+        renderTree();
+        renderCards();
+        updateMidLabel();
+        updateRecs();
+      };
+      stageList.appendChild(si);
+    });
+
+    header.onclick = () => {
+      if (selectedProduct === product) {
+        selectedProduct = null;
+        selectedStage = null;
+      } else {
+        selectedProduct = product;
+        selectedStage = null;
+      }
+      renderTree();
+      renderCards();
+      updateMidLabel();
+      updateRecs();
+    };
+
+    item.appendChild(header);
+    item.appendChild(stageList);
+    tree.appendChild(item);
+  });
+}
+
+// ── 渲染：话术卡片 ──
+function renderCards() {
+  const container = document.getElementById('scriptCards');
+  let scripts = data.scripts;
+
+  if (searchQuery) {
+    scripts = scripts.filter(s => s.content.includes(searchQuery));
+  } else if (selectedProduct && selectedStage) {
+    scripts = scripts.filter(s => s.product === selectedProduct && s.stage === selectedStage);
+  } else if (selectedProduct) {
+    scripts = scripts.filter(s => s.product === selectedProduct);
+  }
+
+  container.innerHTML = '';
+
+  if (!scripts.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="e-icon">📭</div>
+        <div>${searchQuery ? '没有匹配的话术' : '这里还没有话术'}</div>
+        ${!searchQuery ? `<div class="e-btn" onclick="openModal()">＋ 添加第一条话术</div>` : ''}
+      </div>
+    `;
+    return;
+  }
+
+  scripts.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'script-card';
+    card.id = `card-${s.id}`;
+
+    const isLong = s.content.length > 120;
+    const preview = isLong ? s.content.slice(0, 120) + '...' : s.content;
+
+    card.innerHTML = `
+      <div class="card-tags">
+        <span class="tag stage-tag">${STAGE_ICONS[s.stage] || ''} ${s.stage}</span>
+        <span class="tag product-tag">${s.product}</span>
+      </div>
+      <div class="card-content" id="content-${s.id}">${escHtml(preview)}</div>
+      ${isLong ? `<div class="card-expand" onclick="toggleExpand(${s.id})">展开 ▾</div>` : ''}
+      <div class="card-footer">
+        <div class="card-stats">
+          <span>使用 ${s.useCount} 次</span>
+          ${s.rate ? `<span>成交率 ${s.rate}%</span>` : ''}
+        </div>
+        <button class="btn-delete" onclick="deleteScript(${s.id})" title="删除">🗑</button>
+        <button class="btn-edit" onclick="openModal(${s.id})">✏️ 编辑</button>
+        <button class="btn-shoot" onclick="shootScript(${s.id})">🏹 射出去</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function toggleExpand(id) {
+  const s = data.scripts.find(x => x.id === id);
+  if (!s) return;
+  const el = document.getElementById(`content-${id}`);
+  const expandBtn = el.nextElementSibling;
+  if (el.classList.contains('expanded')) {
+    el.classList.remove('expanded');
+    el.innerHTML = escHtml(s.content.slice(0, 120) + '...');
+    if (expandBtn) expandBtn.textContent = '展开 ▾';
+  } else {
+    el.classList.add('expanded');
+    el.innerHTML = escHtml(s.content);
+    if (expandBtn) expandBtn.textContent = '收起 ▴';
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ── 更新中栏标题 ──
+function updateMidLabel() {
+  const el = document.getElementById('midLabel');
+  if (selectedProduct && selectedStage) {
+    el.textContent = `${PRODUCT_ICONS[selectedProduct]} ${selectedProduct} · ${STAGE_ICONS[selectedStage]} ${selectedStage}`;
+  } else if (selectedProduct) {
+    el.textContent = `${PRODUCT_ICONS[selectedProduct]} ${selectedProduct}`;
+  } else if (searchQuery) {
+    el.textContent = `🔍 搜索：「${searchQuery}」`;
+  } else {
+    el.textContent = '全部话术';
+  }
+}
+
+// ── AI推荐 ──
+function updateRecs() {
+  // 读取 chat.html 设置的当前客户上下文
+  let ctx = {};
+  try { ctx = JSON.parse(localStorage.getItem('gh_chat_context') || '{}'); } catch(e) {}
+
+  const customer = ctx.name || '—';
+  const product = ctx.product || selectedProduct || '播客私教';
+  const stage = ctx.stage || selectedStage || '解决顾虑';
+
+  document.getElementById('ctxCustomer').textContent = customer;
+  document.getElementById('ctxProduct').textContent = product;
+  document.getElementById('ctxStage').textContent = stage;
+
+  // 取该产品+阶段的话术，按useCount排序
+  let pool = data.scripts.filter(s => s.product === product && s.stage === stage);
+  if (!pool.length) pool = data.scripts.filter(s => s.stage === stage);
+  if (!pool.length) pool = data.scripts.slice(0, 3);
+
+  pool = [...pool].sort((a, b) => (b.rate || 0) - (a.rate || 0) || b.useCount - a.useCount);
+  const top3 = pool.slice(0, 3);
+
+  const container = document.getElementById('recCards');
+  container.innerHTML = '';
+
+  if (!top3.length) {
+    container.innerHTML = '<div style="padding:12px 14px;font-size:11px;color:#404040;">当前分类暂无话术</div>';
+    return;
+  }
+
+  top3.forEach((s, i) => {
+    const card = document.createElement('div');
+    card.className = 'rec-card' + (i === 0 ? ' best' : '');
+    const preview = s.content.length > 80 ? s.content.slice(0, 80) + '...' : s.content;
+    const metaText = i === 0
+      ? `⭐ 最佳匹配 · 成交率 ${s.rate || '—'}%`
+      : `成交率 ${s.rate || '—'}%  使用 ${s.useCount} 次`;
+    card.innerHTML = `
+      <div class="rc-meta">${metaText}</div>
+      <div class="rc-content">${escHtml(preview)}</div>
+      <div class="rc-actions"><button class="rc-use-btn" onclick="shootScriptById(${s.id})">使用</button></div>
+    `;
+    container.appendChild(card);
+  });
+
+  // 统计
+  const total = data.scripts.reduce((sum, s) => sum + s.useCount, 0);
+  const rated = data.scripts.filter(s => s.rate > 0);
+  const avgRate = rated.length ? Math.round(rated.reduce((sum, s) => sum + s.rate, 0) / rated.length) : 0;
+  const best = [...data.scripts].sort((a, b) => b.rate - a.rate)[0];
+
+  document.getElementById('statTotal').textContent = total + ' 次';
+  document.getElementById('statRate').textContent = avgRate ? avgRate + '%' : '—';
+  document.getElementById('statBest').textContent = best?.rate ? best.content.slice(0, 20) + '...' : '—';
+}
+
+// ── 使用话术（复制到剪贴板）──
+function shootScript(id) { shootScriptById(id); }
+function shootScriptById(id) {
+  const s = data.scripts.find(x => x.id === id);
+  if (!s) return;
+  s.useCount = (s.useCount || 0) + 1;
+  saveData();
+  renderCards();
+  updateRecs();
+
+  // 复制到剪贴板
+  navigator.clipboard.writeText(s.content).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = s.content;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+
+  showToast('已复制 🏹');
+
+  // 同时通知 chat.html（如果在 iframe 里）
+  try {
+    window.parent.postMessage({ type: 'script_selected', content: s.content }, '*');
+  } catch(e) {}
+}
+
+function showToast(msg) {
+  const t = document.getElementById('copiedToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── 模态框 ──
+function openModal(id) {
+  editingId = id || null;
+  const modal = document.getElementById('modalOverlay');
+  const title = document.getElementById('modalTitle');
+
+  // 填充 select
+  const fProduct = document.getElementById('fProduct');
+  const fStage = document.getElementById('fStage');
+  fProduct.innerHTML = PRODUCTS.map(p => `<option value="${p}">${PRODUCT_ICONS[p]} ${p}</option>`).join('');
+  fStage.innerHTML = STAGES.map(s => `<option value="${s}">${STAGE_ICONS[s]} ${s}</option>`).join('');
+
+  if (id) {
+    const s = data.scripts.find(x => x.id === id);
+    if (!s) return;
+    title.textContent = '编辑话术';
+    fProduct.value = s.product;
+    fStage.value = s.stage;
+    document.getElementById('fContent').value = s.content;
+  } else {
+    title.textContent = '添加话术';
+    fProduct.value = selectedProduct || PRODUCTS[0];
+    fStage.value = selectedStage || STAGES[0];
+    document.getElementById('fContent').value = '';
+  }
+
+  modal.classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  editingId = null;
+}
+
+function saveScript() {
+  const product = document.getElementById('fProduct').value;
+  const stage = document.getElementById('fStage').value;
+  const content = document.getElementById('fContent').value.trim();
+  if (!content) { alert('请输入话术内容'); return; }
+
+  if (editingId) {
+    const s = data.scripts.find(x => x.id === editingId);
+    if (s) { s.product = product; s.stage = stage; s.content = content; }
+  } else {
+    const newId = Date.now();
+    data.scripts.push({ id: newId, product, stage, content, useCount: 0, rate: 0 });
+  }
+
+  saveData();
+  closeModal();
+  renderTree();
+  renderCards();
+  updateRecs();
+}
+
+function deleteScript(id) {
+  if (!confirm('确认删除这条话术？')) return;
+  data.scripts = data.scripts.filter(s => s.id !== id);
+  saveData();
+  renderTree();
+  renderCards();
+  updateRecs();
+}
+
+// ── 快速收录 ──
+function quickSave() {
+  const content = document.getElementById('quickAdd').value.trim();
+  if (!content) return;
+  const product = selectedProduct || PRODUCTS[0];
+  const stage = selectedStage || STAGES[0];
+  data.scripts.push({ id: Date.now(), product, stage, content, useCount: 0, rate: 0 });
+  saveData();
+  document.getElementById('quickAdd').value = '';
+  renderTree();
+  renderCards();
+  updateRecs();
+  showToast('已保存到 ' + product + ' · ' + stage);
+}
+
+// ── 搜索 ──
+document.getElementById('searchInput').addEventListener('input', function() {
+  searchQuery = this.value.trim();
+  if (searchQuery) { selectedProduct = null; selectedStage = null; }
+  renderTree();
+  renderCards();
+  updateMidLabel();
+});
+
+// ── 暴露给 chat.html 调用 ──
+window.getScripts = function(product, stage) {
+  if (product && stage) return data.scripts.filter(s => s.product === product && s.stage === stage);
+  if (product) return data.scripts.filter(s => s.product === product);
+  return data.scripts;
+};
+
+window.getBestScript = function(product, stage) {
+  const pool = data.scripts.filter(s => s.product === product && s.stage === stage);
+  if (!pool.length) return null;
+  return pool.sort((a, b) => (b.rate || 0) - (a.rate || 0))[0];
+};
+
+// 监听 chat.html 发来的上下文更新
+window.addEventListener('storage', function(e) {
+  if (e.key === 'gh_chat_context') updateRecs();
+});
+
+// 点击 overlay 关闭模态框
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── 初始化 ──
+renderTree();
+renderCards();
+updateMidLabel();
+updateRecs();
+
+// 定时刷新右栏上下文（每2秒检查一次 chat.html 的客户切换）
+setInterval(updateRecs, 2000);
+</script>
 </body>
 </html>
