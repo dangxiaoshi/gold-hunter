@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>金币猎人 2.0</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, sans-serif; background: #1a1a1a; height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── 密码墙 ── */
+    #lock-screen {
+      position: fixed; inset: 0;
+      background: #1a1a1a;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #lock-screen.hidden { display: none; }
+    .lock-box {
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 12px;
+      padding: 40px 48px;
+      text-align: center;
+      min-width: 320px;
+    }
+    .lock-title { color: #f0c040; font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+    .lock-sub { color: #888; font-size: 13px; margin-bottom: 28px; }
+    .lock-input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: #eee;
+      font-size: 16px;
+      letter-spacing: 3px;
+      text-align: center;
+      outline: none;
+      margin-bottom: 16px;
+    }
+    .lock-input:focus { border-color: #f0c040; }
+    .lock-btn {
+      width: 100%;
+      padding: 10px;
+      background: #f0c040;
+      color: #1a1a1a;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .lock-btn:hover { background: #ffd060; }
+    .lock-error { color: #e05050; font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+    /* ── 主应用 ── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: #1a1a1a;
+    }
+    #app.hidden { display: none; }
+
+    /* Tab 导航 */
+    #tabbar {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: #222;
+      padding: 0 16px;
+      height: 44px;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+    .logo { color: #f0c040; font-weight: 700; font-size: 15px; margin-right: 12px; }
+    .tab-btn {
+      padding: 6px 16px;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      color: #999;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { color: #eee; background: #333; }
+    .tab-btn.active { color: #f0c040; background: #2e2e2e; font-weight: 500; }
+    .spacer { flex: 1; }
+    .lock-icon-btn {
+      background: transparent;
+      border: none;
+      color: #666;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .lock-icon-btn:hover { color: #eee; background: #333; }
+
+    /* iframe 区域 */
+    #page-frame {
+      flex: 1;
+      border: none;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 密码墙 -->
+<div id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-title">🏹 金币猎人 2.0</div>
+    <div class="lock-sub">私人工具 · 请输入密码</div>
+    <input id="pwd-input" class="lock-input" type="password" placeholder="••••••••" autocomplete="off">
+    <button class="lock-btn" id="pwd-btn">进入</button>
+    <div class="lock-error" id="pwd-error"></div>
+  </div>
+</div>
+
+<!-- 主应用 -->
+<div id="app" class="hidden">
+  <div id="tabbar">
+    <span class="logo">🏹 金币猎人</span>
+    <button class="tab-btn active" data-page="pages/chat.html">对话框</button>
+    <button class="tab-btn" data-page="pages/contacts.html">通讯录</button>
+    <button class="tab-btn" data-page="pages/scripts.html">话术库</button>
+    <button class="tab-btn" data-page="pages/products.html">产品库</button>
+    <button class="tab-btn" data-page="pages/playbook.html">销售秘籍</button>
+    <span class="spacer"></span>
+    <button class="lock-icon-btn" id="logout-btn" title="锁定">🔒</button>
+  </div>
+  <iframe id="page-frame" src="pages/chat.html"></iframe>
+</div>
+
+<script>
+  // ── 密码配置（前端简单保护，私人工具用）──
+  const PASSWORD = 'gaoqiantongxue';
+  const SESSION_KEY = 'gh2_auth';
+
+  const lockScreen = document.getElementById('lock-screen');
+  const app = document.getElementById('app');
+  const pwdInput = document.getElementById('pwd-input');
+  const pwdBtn = document.getElementById('pwd-btn');
+  const pwdError = document.getElementById('pwd-error');
+  const pageFrame = document.getElementById('page-frame');
+
+  function unlock() {
+    lockScreen.classList.add('hidden');
+    app.classList.remove('hidden');
+    sessionStorage.setItem(SESSION_KEY, '1');
+  }
+
+  function lock() {
+    app.classList.add('hidden');
+    lockScreen.classList.remove('hidden');
+    pwdInput.value = '';
+    pwdError.textContent = '';
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+
+  function tryUnlock() {
+    if (pwdInput.value === PASSWORD) {
+      unlock();
+    } else {
+      pwdError.textContent = '密码不对，再试一次';
+      pwdInput.value = '';
+      pwdInput.focus();
+    }
+  }
+
+  // 检查 session
+  if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    unlock();
+  } else {
+    setTimeout(() => pwdInput.focus(), 100);
+  }
+
+  pwdBtn.addEventListener('click', tryUnlock);
+  pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+
+  // 退出登录
+  document.getElementById('logout-btn').addEventListener('click', lock);
+
+  // Tab 切换
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      pageFrame.src = btn.dataset.page;
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+{
+  "models": [
+    {
+      "id": "qwen-plus",
+      "name": "千问 Plus",
+      "provider": "qwen",
+      "apiKey": "sk-881e83d692f449d98e2efa633932942b",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    },
+    {
+      "id": "qwen-turbo",
+      "name": "千问 Turbo",
+      "provider": "qwen",
+      "apiKey": "",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    },
+    {
+      "id": "qwen-max",
+      "name": "千问 Max",
+      "provider": "qwen",
+      "apiKey": "",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    },
+    {
+      "id": "deepseek-chat",
+      "name": "DeepSeek",
+      "provider": "deepseek",
+      "apiKey": "sk-a1d68136d14e410d8b652595fcb91c7d",
+      "baseUrl": "https://api.deepseek.com/v1"
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "name": "Claude Sonnet",
+      "provider": "anthropic",
+      "apiKey": "sk-N0D1r3PupkGsgE5yFc33Bf95269042C69035DcC888B4D291",
+      "baseUrl": "https://api.hardon.work"
+    }
+  ],
+  "activeModel": "deepseek-chat",
+  "mySenderName": "当小时",
+  "products": [
+    "人生设计课",
+    "超级个体孵化",
+    "私教",
+    "播客课"
+  ],
+  "progressStages": [
+    "建立链接",
+    "同步信息",
+    "挖掘需求",
+    "解决顾虑",
+    "达成成交"
+  ],
+  "emojis": [
+    "🔥",
+    "❄️",
+    "💰",
+    "🎯",
+    "⚡",
+    "💎",
+    "🚀",
+    "⭐",
+    "🔄",
+    "🔚",
+    "😊",
+    "😐",
+    "😤",
+    "🤔",
+    "😅",
+    "🥶",
+    "🤩",
+    "😏",
+    "🙏",
+    "👀",
+    "👍",
+    "🙅",
+    "👏",
+    "🎉",
+    "🥳",
+    "🐯",
+    "🦊",
+    "🐻",
+    "🐼",
+    "🦁",
+    "🐸",
+    "🐺",
+    "🦋",
+    "🐰",
+    "🥚",
+    "🐣",
+    "👶",
+    "🌹",
+    "🌻",
+    "🍀",
+    "🌿",
+    "🌸",
+    "🌵",
+    "🍁",
+    "🌾",
+    "🌱",
+    "☀️",
+    "🌙",
+    "⭐",
+    "🌟",
+    "🌈",
+    "☁️",
+    "1️⃣",
+    "2️⃣",
+    "3️⃣",
+    "4️⃣",
+    "5️⃣"
+  ],
+  "dataPaths": [
+    "/Users/dang/Documents/💰/微信聊天记录_dangxiaoshi888/所有聊天记录.json",
+    "/Users/dang/Documents/💰/微信聊天记录_gaoqiantongxue/所有聊天记录.json"
+  ],
+  "accountLabels": {
+    "dangxiaoshi888": "主",
+    "gaoqiantongxue": "副"
+  }
+}
