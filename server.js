@@ -8,6 +8,7 @@ app.use(express.static('public'));
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const DB_PATH = path.join(__dirname, 'data', 'customers.json');
+const PRODUCTS_PATH = path.join(__dirname, 'data', 'products.json');
 
 // ── JSON DB ───────────────────────────────────────────────────────────────────
 function loadDB() {
@@ -46,6 +47,17 @@ function makeId(account, name) {
 // Config
 app.get('/api/config', (req, res) => res.json(loadConfig()));
 app.put('/api/config', (req, res) => { saveConfig(req.body); res.json({ ok: true }); });
+
+// ── Products ──────────────────────────────────────────────────────────────────
+app.get('/api/products', (req, res) => {
+  if (!fs.existsSync(PRODUCTS_PATH)) return res.json([]);
+  try { res.json(JSON.parse(fs.readFileSync(PRODUCTS_PATH, 'utf8'))); }
+  catch { res.json([]); }
+});
+app.put('/api/products', (req, res) => {
+  fs.writeFileSync(PRODUCTS_PATH, JSON.stringify(req.body, null, 2));
+  res.json({ ok: true });
+});
 
 // Import
 app.post('/api/import', (req, res) => {
@@ -207,10 +219,11 @@ async function streamFromOpenAI(baseUrl, apiKey, model, messages, res) {
   res.end();
 }
 
-async function streamFromAnthropic(apiKey, model, messages, res) {
+async function streamFromAnthropic(apiKey, model, messages, res, baseUrl) {
   const { default: fetch } = await import('node-fetch');
   const sysMsg = messages.find(m => m.role === 'system')?.content;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const endpoint = (baseUrl || 'https://api.anthropic.com').replace(/\/$/, '') + '/v1/messages';
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -255,7 +268,7 @@ async function callAI(systemPrompt, userContent, res) {
   ];
 
   if (modelCfg.provider === 'anthropic') {
-    await streamFromAnthropic(modelCfg.apiKey, modelCfg.id, msgs, res);
+    await streamFromAnthropic(modelCfg.apiKey, modelCfg.id, msgs, res, modelCfg.baseUrl);
   } else {
     await streamFromOpenAI(modelCfg.baseUrl, modelCfg.apiKey, modelCfg.id, msgs, res);
   }
@@ -270,7 +283,7 @@ async function callAIWithMessages(messages, res) {
   res.setHeader('Connection', 'keep-alive');
 
   if (modelCfg.provider === 'anthropic') {
-    await streamFromAnthropic(modelCfg.apiKey, modelCfg.id, messages, res);
+    await streamFromAnthropic(modelCfg.apiKey, modelCfg.id, messages, res, modelCfg.baseUrl);
   } else {
     await streamFromOpenAI(modelCfg.baseUrl, modelCfg.apiKey, modelCfg.id, messages, res);
   }
@@ -294,7 +307,7 @@ app.post('/api/ai/analyze', async (req, res) => {
 
 // 🏹 出击: 意图分析 + A/B/C 话术
 app.post('/api/ai/tactics', async (req, res) => {
-  const { messages, customerName, product, progressStage, daysSince, phase } = req.body;
+  const { messages, customerName, product, progressStage, daysSince, phase, productCard, sampleScripts } = req.body;
   const cfg = loadConfig();
   const stages = cfg.progressStages;
   const curr = stages[progressStage] || stages[0];
@@ -304,7 +317,6 @@ app.post('/api/ai/tactics', async (req, res) => {
     .map(m => `[${m.sender === cfg.mySenderName ? '我' : customerName}] ${m.content}`)
     .join('\n');
 
-  // 客户状态描述
   const contactDesc = daysSince === 0 ? '今天有互动'
     : daysSince === 1 ? '昨天有互动'
     : daysSince != null ? `已${daysSince}天未互动`
@@ -316,9 +328,14 @@ app.post('/api/ai/tactics', async (req, res) => {
     ? '🌱 新客户：消息较少，话术以建立信任为主，不要过度推销。'
     : '🔥 跟进客户：正在推进中，话术直接推动成交。';
 
+  const productSection = productCard ? `\n\n--- 产品资料 ---\n${productCard}` : '';
+  const scriptsSection = (sampleScripts && sampleScripts.length)
+    ? `\n\n--- 参考话术（来自话术库，仅供风格参考，不要直接照抄）---\n${sampleScripts.map((s, i) => `${i+1}. ${s}`).join('\n\n')}`
+    : '';
+
   const system = `你是顶级销售教练，专注知识付费产品。
 客户状态：${phase || '跟进'}客户，${contactDesc}。${phaseNote}
-当前：客户"${customerName}"，产品"${product || '未指定'}"，阶段"${curr}"，目标推进到"${next}"。
+当前：客户"${customerName}"，产品"${product || '未指定'}"，阶段"${curr}"，目标推进到"${next}"。${productSection}${scriptsSection}
 
 输出格式（严格按此）：
 【意图分析】
@@ -363,7 +380,8 @@ app.post('/api/config/test-model', async (req, res) => {
   const { default: fetch } = await import('node-fetch');
   try {
     if (provider === 'anthropic') {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
+      const endpoint = (baseUrl || 'https://api.anthropic.com').replace(/\/$/, '') + '/v1/messages';
+      const r = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({ model: id, max_tokens: 10, messages: [{ role: 'user', content: 'hi' }] })

@@ -5,15 +5,761 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>产品库 — 金币猎人 2.0</title>
   <link rel="stylesheet" href="../style.css">
+  <style>
+    /* ── Products Page Layout ── */
+    #page-products {
+      display: flex; flex-direction: column; height: 100%;
+      background: #141414; overflow: hidden;
+    }
+
+    /* Toolbar */
+    #prod-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; background: #181818;
+      border-bottom: 1px solid #242424; flex-shrink: 0;
+    }
+    #prod-search {
+      background: #222; border: 1px solid #2a2a2a; border-radius: 5px;
+      color: #d0d0d0; font-size: 11px; padding: 5px 10px;
+      outline: none; width: 160px;
+    }
+    #prod-search::placeholder { color: #484848; }
+    #prod-search:focus { border-color: #444; }
+    #prod-toolbar .spacer { flex: 1; }
+    #btn-add-product {
+      font-size: 11px; color: #f0a500; background: none; border: none;
+      cursor: pointer; padding: 4px 0; letter-spacing: 0.3px;
+    }
+    #btn-add-product:hover { opacity: 0.8; }
+
+    /* Cards Area */
+    #prod-body {
+      display: flex; flex: 1; overflow: hidden;
+      flex-direction: column;
+    }
+
+    #prod-cards-wrap {
+      padding: 14px 16px 10px;
+      overflow-x: hidden; overflow-y: auto; flex-shrink: 0;
+    }
+
+    #prod-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    /* Product card */
+    .prod-card {
+      background: #1a1a1a; border: 1px solid #282828; border-radius: 8px;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      display: flex; flex-direction: column;
+    }
+    .prod-card:hover { border-color: #383838; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+    .prod-card.active { border-color: #f0a500; box-shadow: 0 0 0 1px #f0a50040; }
+    .prod-card.featured { border-color: #f0a500; }
+    .prod-card.featured:hover { box-shadow: 0 2px 16px rgba(240,165,0,0.15); }
+
+    /* Top accent bar */
+    .prod-card-bar { height: 3px; background: #383838; flex-shrink: 0; }
+    .prod-card.featured .prod-card-bar { background: #f0a500; }
+
+    .prod-card-inner { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 0; flex: 1; }
+
+    /* Tag badge */
+    .prod-tag {
+      display: inline-flex; align-items: center;
+      background: #222; border-radius: 3px;
+      font-size: 9px; color: #686868; padding: 2px 7px;
+      align-self: flex-start; margin-bottom: 10px; letter-spacing: 0.3px;
+    }
+    .prod-card.featured .prod-tag { background: #282010; color: #f0a500; }
+
+    .prod-card-name {
+      font-size: 15px; font-weight: 600; color: #e0e0e0;
+      margin-bottom: 4px; line-height: 1.3;
+    }
+    .prod-card.featured .prod-card-name { color: #f0f0f0; }
+
+    .prod-card-desc {
+      font-size: 11px; color: #505050; margin-bottom: 12px; line-height: 1.4;
+    }
+
+    .prod-card-price {
+      font-size: 22px; font-weight: 700; color: #c0c0c0;
+      margin-bottom: 12px; line-height: 1;
+    }
+    .prod-card.featured .prod-card-price { color: #f0a500; }
+    .prod-card-price-unit { font-size: 11px; color: #484848; font-weight: 400; margin-left: 3px; }
+
+    .prod-card-perks { display: flex; flex-direction: column; gap: 6px; flex: 1; margin-bottom: 14px; }
+    .prod-perk { font-size: 11px; color: #787878; display: flex; align-items: flex-start; gap: 5px; }
+    .prod-perk::before { content: '✓'; color: #484848; flex-shrink: 0; font-size: 10px; margin-top: 1px; }
+
+    /* Card buttons */
+    .prod-card-actions { display: flex; gap: 8px; }
+    .prod-card-actions button {
+      flex: 1; height: 28px; border-radius: 5px; font-size: 11px;
+      cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .btn-view-scripts {
+      background: #222; color: #909090;
+    }
+    .btn-view-scripts:hover { background: #2a2a2a; color: #d0d0d0; }
+    .prod-card.featured .btn-view-scripts {
+      background: #f0a500; color: #7a4f00; font-weight: 500;
+    }
+    .prod-card.featured .btn-view-scripts:hover { opacity: 0.9; }
+    .btn-edit-prod { background: #1a1a1a; color: #686868; border: 1px solid #252525 !important; }
+    .btn-edit-prod:hover { background: #222; color: #999; }
+
+    /* Add new card (dashed) */
+    .prod-card-add {
+      background: #141414; border: 1px dashed #222; border-radius: 8px;
+      min-height: 180px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; cursor: pointer; gap: 6px;
+      transition: border-color 0.15s;
+    }
+    .prod-card-add:hover { border-color: #333; }
+    .prod-card-add .add-icon { font-size: 26px; color: #282828; }
+    .prod-card-add .add-label { font-size: 12px; color: #303030; }
+
+    /* Detail Panel */
+    #prod-detail {
+      flex: 1; overflow-y: auto; min-height: 0;
+      background: #181818; border-top: 1px solid #242424;
+      display: none; flex-direction: column;
+    }
+    #prod-detail.visible { display: flex; }
+
+    #detail-header {
+      background: #1e1e1e; padding: 10px 16px;
+      border-bottom: 1px solid #282828; flex-shrink: 0;
+      display: flex; align-items: center; gap: 8px;
+    }
+    #detail-title {
+      font-size: 12px; font-weight: 500; color: #d8d8d8; flex: 1;
+    }
+    #detail-close {
+      font-size: 13px; color: #444; cursor: pointer; padding: 2px 6px;
+      border-radius: 3px;
+    }
+    #detail-close:hover { color: #888; background: #252525; }
+
+    #detail-body {
+      padding: 16px 20px; display: flex; gap: 24px; flex: 1;
+    }
+
+    /* Left col: core points */
+    #detail-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    .detail-section-label {
+      font-size: 11px; color: #f0a500; font-weight: 500; margin-bottom: 4px;
+    }
+    .core-point {
+      background: #191919; border: 1px solid #252525; border-radius: 5px;
+      padding: 10px 12px;
+    }
+    .core-point.highlight { background: #191600; border-color: #2a2200; }
+    .core-point-text { font-size: 12px; color: #d0d0d0; margin-bottom: 4px; }
+    .core-point-scene { font-size: 11px; color: #787878; }
+    .core-point-scene::before { content: '→ '; }
+
+    /* Right col: fit + stats */
+    #detail-right { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+    .fit-list { display: flex; flex-direction: column; gap: 6px; }
+    .fit-item { font-size: 12px; color: #a0a0a0; display: flex; gap: 6px; }
+    .fit-item::before { content: '·'; color: #555; flex-shrink: 0; }
+    .worry-item { font-size: 11px; color: #787878; line-height: 1.5; }
+    .worry-item strong { color: #a0a0a0; }
+
+    /* Stats row */
+    #detail-stats {
+      border-top: 1px solid #252525;
+      padding-top: 14px; margin-top: 4px;
+      display: flex; gap: 20px; align-items: baseline; flex-wrap: wrap;
+    }
+    .stat-item { display: flex; flex-direction: column; gap: 2px; }
+    .stat-label { font-size: 11px; color: #505050; }
+    .stat-val { font-size: 14px; font-weight: 600; color: #d8d8d8; }
+    .stat-val.gold { color: #f0a500; }
+
+    /* Linked scripts tags */
+    #detail-scripts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+    .scripts-label { font-size: 11px; color: #505050; }
+    .script-tag {
+      background: #222; border: none; border-radius: 4px;
+      font-size: 10px; color: #909090; padding: 3px 10px;
+      cursor: pointer; transition: background 0.1s;
+    }
+    .script-tag:hover { background: #2a2a2a; color: #d0d0d0; }
+
+    /* ── Edit Modal ── */
+    #prod-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    #prod-modal-overlay.open { display: flex; }
+    #prod-modal {
+      background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 10px;
+      width: 560px; max-height: 80vh; overflow-y: auto;
+      padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;
+    }
+    #modal-title { font-size: 14px; font-weight: 600; color: #d0d0d0; }
+    .modal-field { display: flex; flex-direction: column; gap: 5px; }
+    .modal-label { font-size: 11px; color: #555; letter-spacing: 0.5px; }
+    .modal-input {
+      background: #252525; border: 1px solid #333; border-radius: 5px;
+      color: #d0d0d0; font-size: 12px; padding: 6px 9px; outline: none; width: 100%;
+    }
+    .modal-input:focus { border-color: #555; }
+    textarea.modal-input { resize: vertical; min-height: 60px; }
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; }
+    .btn-modal-save {
+      background: #f0a500; color: #141414; font-weight: 600; font-size: 12px;
+      border-radius: 6px; padding: 7px 20px; cursor: pointer; border: none;
+    }
+    .btn-modal-save:hover { opacity: 0.88; }
+    .btn-modal-cancel {
+      background: #252525; color: #888; font-size: 12px;
+      border-radius: 6px; padding: 7px 16px; cursor: pointer; border: 1px solid #333;
+    }
+    .btn-modal-cancel:hover { color: #d0d0d0; }
+    .btn-modal-delete {
+      background: none; color: #555; font-size: 11px;
+      border: none; cursor: pointer; margin-right: auto; padding: 7px 0;
+    }
+    .btn-modal-delete:hover { color: #f44336; }
+  </style>
 </head>
 <body>
 <div id="page-products">
-  <!-- 业务逻辑待填入 -->
-  <div class="page-placeholder">
-    <span class="icon">📦</span>
-    <p>产品库</p>
+
+  <!-- Toolbar -->
+  <div id="prod-toolbar">
+    <input id="prod-search" type="text" placeholder="🔍 搜索产品...">
+    <div class="spacer"></div>
+    <button id="btn-add-product" onclick="openModal(null)">＋ 添加产品</button>
+  </div>
+
+  <!-- Body -->
+  <div id="prod-body">
+
+    <!-- Cards -->
+    <div id="prod-cards-wrap">
+      <div id="prod-cards"></div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div id="prod-detail">
+      <div id="detail-header">
+        <span id="detail-title">📋 产品 — 销售指南</span>
+        <span id="detail-close" onclick="closeDetail()">✕</span>
+      </div>
+      <div id="detail-body">
+        <div id="detail-left">
+          <div class="detail-section-label">核心卖点（可直接说出口）</div>
+          <div id="detail-points"></div>
+          <div id="detail-stats"></div>
+          <div id="detail-scripts"></div>
+        </div>
+        <div id="detail-right">
+          <div>
+            <div class="detail-section-label">最适合的客户</div>
+            <div id="detail-fit" class="fit-list"></div>
+          </div>
+          <div>
+            <div class="detail-section-label">常见顾虑</div>
+            <div id="detail-worries"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
-<script src="../app.js"></script>
+
+<!-- Edit Modal -->
+<div id="prod-modal-overlay">
+  <div id="prod-modal">
+    <div id="modal-title">添加产品</div>
+
+    <div class="modal-row">
+      <div class="modal-field">
+        <label class="modal-label">产品名称</label>
+        <input id="m-name" class="modal-input" type="text" placeholder="例：播客变现私教">
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">标签</label>
+        <input id="m-tag" class="modal-input" type="text" placeholder="主打 / 进阶 / 入门 / 社群">
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">简介（一句话）</label>
+      <input id="m-desc" class="modal-input" type="text" placeholder="例：一年陪跑，从0到1建立播客变现体系">
+    </div>
+
+    <div class="modal-row">
+      <div class="modal-field">
+        <label class="modal-label">价格（数字）</label>
+        <input id="m-price" class="modal-input" type="number" placeholder="5200">
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">价格单位</label>
+        <input id="m-price-unit" class="modal-input" type="text" placeholder="/年">
+      </div>
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">权益清单（每行一条，最多3条）</label>
+      <textarea id="m-perks" class="modal-input" rows="3" placeholder="不限次1v1深度辅导&#10;专属档案+圆桌社群+训练营复训&#10;线下聚会+分销权益"></textarea>
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">适合谁（每行一条）</label>
+      <textarea id="m-fit" class="modal-input" rows="3" placeholder="有业务/产品，想用播客引流&#10;被平台限流，需要公域突破口&#10;月收入1万以上，有付费学习习惯"></textarea>
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">核心价值（一句话）</label>
+      <input id="m-value" class="modal-input" type="text" placeholder="帮你把播客变成精准客户持续来源">
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">核心卖点（每行一条，格式：卖点 | 适合场景）</label>
+      <textarea id="m-points" class="modal-input" rows="3"
+        placeholder="每天只要14块，比一杯咖啡便宜 | 适合价格敏感型&#10;一个播客能带来的客户远比刷朋友圈多 | 适合有业务想引流的老板&#10;不是教剪视频，是建一套用声音赚钱的系统 | 适合想长期变现的人"></textarea>
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">常见顾虑（每行一条，格式：顾虑 → 破解）</label>
+      <textarea id="m-worries" class="modal-input" rows="3"
+        placeholder="太贵了 → 每天14块，一个客户就回本&#10;没时间 → 每周1期也能跑，规划我们帮&#10;我不会说话 → 从选题开始手把手"></textarea>
+    </div>
+
+    <div class="modal-field">
+      <label class="modal-label">是否主打产品</label>
+      <select id="m-featured" class="modal-input">
+        <option value="0">普通</option>
+        <option value="1">主打（金色边框）</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-modal-delete" id="modal-delete-btn" onclick="deleteProduct()" style="display:none">删除产品</button>
+      <button class="btn-modal-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-modal-save" onclick="saveProduct()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Default Data ── */
+const DEFAULT_PRODUCTS = [
+  {
+    id: 1,
+    name: '产品全览',
+    tag: '全览',
+    desc: '完整产品地图，一眼看清选品逻辑',
+    price: null,
+    priceUnit: '',
+    featured: false,
+    perks: [
+      '免费内容 → 社群¥299 → 剪辑营¥499/咨询¥888 → 私教¥5200',
+      '每个产品差价可互相抵扣',
+      '终身社群是所有路径的最终归宿'
+    ],
+    fit: [
+      '刚加微信，不知道推哪个产品时参考',
+      '客户问"有什么课"时直接发这张卡',
+      '做转介绍时介绍全系列'
+    ],
+    value: '快速理解产品矩阵，找到合适入口',
+    points: [
+      { text: '没方向想副业 → 社群→剪辑营', scene: '适合刚认识、还没有明确需求的客户' },
+      { text: '有业务想引流 → 咨询→私教', scene: '适合已有产品、缺少流量的老板' },
+      { text: '转介绍来的 → 直推私教或咨询转化', scene: '适合信任度高、意向明确的客户' }
+    ],
+    worries: []
+  },
+  {
+    id: 2,
+    name: '播客变现私教',
+    tag: '主打',
+    desc: '一年陪跑，用声音建一套持续赚钱的系统',
+    price: 5200,
+    priceUnit: '/年',
+    featured: true,
+    perks: [
+      '不限次1v1深度辅导',
+      '专属档案+圆桌社群+训练营复训',
+      '线下聚会+分销权益'
+    ],
+    fit: [
+      '有业务/产品，想用播客引流',
+      '被平台限流，需要公域突破口',
+      '医美/保险/金融/玄学/留学/情感/加盟行业',
+      '月收入1万以上，有付费学习习惯'
+    ],
+    value: '帮你把播客变成精准客户持续来源',
+    points: [
+      { text: '每天只要14块，比一杯咖啡便宜', scene: '适合价格敏感型，先降低感知成本' },
+      { text: '一个播客能带来的客户，远比刷朋友圈多', scene: '适合有业务想引流、厌倦发广告的老板' },
+      { text: '不是教剪视频，是建一套用声音持续赚钱的系统', scene: '适合想长期变现、不想依赖广告的人' }
+    ],
+    worries: [
+      '太贵了 → 每天14块，一个客户的价值？',
+      '没时间 → 每周录1期也能跑，规划我们帮',
+      '我不会说话 → 从选题开始手把手，表达力不是门槛'
+    ]
+  },
+  {
+    id: 3,
+    name: '播客剪辑营',
+    tag: '入门',
+    desc: '21天从0到1接单，完成作业返现100元',
+    price: 499,
+    priceUnit: '/21天',
+    featured: false,
+    perks: [
+      '21天系统剪辑课',
+      '完成作业返现¥100，实际只花¥399',
+      '结业证书+学员群永久留存'
+    ],
+    fit: [
+      '副业小白，想学一个可变现技能',
+      '大学生，想在校就有收入',
+      '职场人，想下班后有额外收入'
+    ],
+    value: '21天系统课，学完能接单，有具体变现路径',
+    points: [
+      { text: '完成作业返100，实际只花399', scene: '适合预算敏感，先看到实惠再说' },
+      { text: '学完能接单，有具体变现路径，不是学完就完了', scene: '适合想要副业收入，不只是学技能的人' },
+      { text: '零基础也行，大学生/职场人都在学', scene: '适合完全没有剪辑基础的人' }
+    ],
+    worries: [
+      '学完能赚钱吗 → 有具体接单路径和案例',
+      '零基础能学吗 → 从头开始，有手就行',
+      '已有剪辑基础了 → 这里教的是接单逻辑，不是纯技术'
+    ]
+  },
+  {
+    id: 4,
+    name: '年度社群',
+    tag: '社群',
+    desc: '每月8号1v1直播连线，同频圈子+可抵扣升级',
+    price: 299,
+    priceUnit: '/年',
+    featured: false,
+    perks: [
+      '每月8号1v1直播连线，一年12次',
+      '社群永久留存',
+      '可抵扣剪辑营/咨询/私教差价'
+    ],
+    fit: [
+      '犹豫是否付费私教，想先低门槛试水',
+      '已有学员，推介绍时的低门槛选项',
+      '预算有限，但想保持持续指导'
+    ],
+    value: '最低门槛入口，建立关系后可抵扣差价升级',
+    points: [
+      { text: '每月8号1v1直播连线，一年12次专属指导', scene: '适合想要持续指导但预算有限的人' },
+      { text: '¥299可抵扣升级其他产品，买了不亏', scene: '适合犹豫不决、需要低风险入口的客户' },
+      { text: '进圈子，跟一群在做播客的人同频', scene: '适合看重人脉资源、信息差驱动的人' }
+    ],
+    worries: [
+      '299值吗 → 光每月1v1就值了，还能抵扣后续产品',
+      '社群有没有人 → 学员质量高，都是在认真做内容的人'
+    ]
+  },
+  {
+    id: 5,
+    name: '私密咨询',
+    tag: '进阶',
+    desc: '单次商业路径梳理，¥888可抵扣私教',
+    price: 888,
+    priceUnit: '/次',
+    featured: false,
+    perks: [
+      '1小时深度商业路径梳理',
+      '专属行动方案文档',
+      '可抵扣私教差价¥888'
+    ],
+    fit: [
+      '有意向但没想清楚要做什么',
+      '觉得私教太贵，想先试试',
+      '老板/高收入客户，需要专业感'
+    ],
+    value: '1小时梳理清楚方向，输出专属行动方案',
+    points: [
+      { text: '一次把商业路径梳理清楚，值多少自己算', scene: '适合思路混乱、不知道从哪里开始的人' },
+      { text: '¥888可抵扣私教，相当于提前锁定名额', scene: '适合觉得私教太贵、想先试试的客户' },
+      { text: '不是聊天，是输出一份专属行动方案', scene: '适合老板型客户，需要成果交付感的人' }
+    ],
+    worries: [
+      '一次咨询能有啥用 → 输出的是专属行动方案文档，不是聊天',
+      '比私教便宜多了值得先试 → 对，而且¥888可以全额抵扣'
+    ]
+  }
+];
+
+/* ── Storage ── */
+async function loadProductsFromServer() {
+  try {
+    const data = await fetch('/api/products').then(r => r.json());
+    if (data && data.length) return data;
+  } catch(e) {}
+  return DEFAULT_PRODUCTS.map(p => ({ ...p }));
+}
+
+function saveProducts(prods) {
+  fetch('/api/products', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prods) });
+}
+
+/* ── State ── */
+let products = [];
+let activeProductId = null;
+let editingId = null;
+let searchQuery = '';
+
+/* ── Render Cards ── */
+function renderCards() {
+  const grid = document.getElementById('prod-cards');
+  grid.innerHTML = '';
+
+  const filtered = products.filter(p =>
+    !searchQuery ||
+    p.name.includes(searchQuery) ||
+    p.tag.includes(searchQuery) ||
+    p.desc.includes(searchQuery)
+  );
+
+  filtered.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'prod-card' + (p.featured ? ' featured' : '') + (p.id === activeProductId ? ' active' : '');
+    card.dataset.id = p.id;
+    card.innerHTML = `
+      <div class="prod-card-bar"></div>
+      <div class="prod-card-inner">
+        <span class="prod-tag">${p.tag}</span>
+        <div class="prod-card-name">${esc(p.name)}</div>
+        <div class="prod-card-desc">${esc(p.desc)}</div>
+        <div class="prod-card-price">
+          ${p.price ? '¥' + p.price.toLocaleString() : '<span style="font-size:13px;color:#444">—</span>'}
+          ${p.price && p.priceUnit ? '<span class="prod-card-price-unit">' + esc(p.priceUnit) + '</span>' : ''}
+        </div>
+        <div class="prod-card-perks">
+          ${p.perks.slice(0, 3).map(k => `<div class="prod-perk">${esc(k)}</div>`).join('')}
+        </div>
+        <div class="prod-card-actions">
+          <button class="btn-view-scripts" onclick="viewScripts(${p.id}, event)">查看话术 →</button>
+          <button class="btn-edit-prod" onclick="openModal(${p.id}, event)">✏️ 编辑</button>
+        </div>
+      </div>
+    `;
+    card.addEventListener('click', () => selectProduct(p.id));
+    grid.appendChild(card);
+  });
+
+  // Add new card
+  const addCard = document.createElement('div');
+  addCard.className = 'prod-card-add';
+  addCard.innerHTML = `<div class="add-icon">＋</div><div class="add-label">添加新产品</div>`;
+  addCard.onclick = () => openModal(null);
+  grid.appendChild(addCard);
+}
+
+/* ── Detail Panel ── */
+function selectProduct(id) {
+  activeProductId = id;
+  renderCards();
+
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('detail-title').textContent = `📋 ${p.name} — 销售指南`;
+
+  // Core points
+  const pointsEl = document.getElementById('detail-points');
+  pointsEl.innerHTML = p.points.map((pt, i) => `
+    <div class="core-point ${i === 0 ? 'highlight' : ''}" style="margin-bottom:8px">
+      <div class="core-point-text">① ${esc(pt.text)}</div>
+      <div class="core-point-scene">${esc(pt.scene)}</div>
+    </div>
+  `.replace('①', `${['①','②','③'][i] || '·'}`)).join('');
+
+  // Fit
+  document.getElementById('detail-fit').innerHTML =
+    p.fit.map(f => `<div class="fit-item">${esc(f)}</div>`).join('');
+
+  // Worries
+  document.getElementById('detail-worries').innerHTML =
+    p.worries.length
+      ? p.worries.map(w => {
+          const parts = w.split(/→|→/);
+          return `<div class="worry-item"><strong>${esc(parts[0].trim())}</strong>${parts[1] ? ' → ' + esc(parts[1].trim()) : ''}</div>`;
+        }).join('')
+      : '<div style="font-size:11px;color:#333">暂无</div>';
+
+  // Stats (placeholder, no real data yet)
+  document.getElementById('detail-stats').innerHTML = `
+    <div class="stat-item"><span class="stat-label">本月成交</span><span class="stat-val">—</span></div>
+    <div class="stat-item"><span class="stat-label">总流水</span><span class="stat-val gold">—</span></div>
+    <div class="stat-item"><span class="stat-label">平均跟进天数</span><span class="stat-val">—</span></div>
+  `;
+
+  // Linked scripts (placeholder tags)
+  document.getElementById('detail-scripts').innerHTML = `
+    <span class="scripts-label">关联话术</span>
+    <button class="script-tag" onclick="viewScripts(${p.id})">价格异议</button>
+    <button class="script-tag" onclick="viewScripts(${p.id})">开场引入</button>
+    <button class="script-tag" onclick="viewScripts(${p.id})">逼单收尾</button>
+  `;
+
+  document.getElementById('prod-detail').classList.add('visible');
+}
+
+function closeDetail() {
+  activeProductId = null;
+  document.getElementById('prod-detail').classList.remove('visible');
+  renderCards();
+}
+
+/* ── View Scripts (switch tab) ── */
+function viewScripts(id, e) {
+  if (e) e.stopPropagation();
+  // Signal parent iframe shell to switch to scripts tab
+  try { parent.postMessage({ type: 'switchTab', tab: 'scripts' }, '*'); } catch(err) {}
+}
+
+/* ── Edit Modal ── */
+function openModal(id, e) {
+  if (e) e.stopPropagation();
+  editingId = id;
+
+  const p = id ? products.find(x => x.id === id) : null;
+  document.getElementById('modal-title').textContent = p ? '编辑产品' : '添加产品';
+  document.getElementById('modal-delete-btn').style.display = p ? 'block' : 'none';
+
+  document.getElementById('m-name').value = p ? p.name : '';
+  document.getElementById('m-tag').value = p ? p.tag : '';
+  document.getElementById('m-desc').value = p ? p.desc : '';
+  document.getElementById('m-price').value = p && p.price ? p.price : '';
+  document.getElementById('m-price-unit').value = p ? p.priceUnit : '';
+  document.getElementById('m-perks').value = p ? p.perks.join('\n') : '';
+  document.getElementById('m-fit').value = p ? p.fit.join('\n') : '';
+  document.getElementById('m-value').value = p ? p.value : '';
+  document.getElementById('m-points').value = p
+    ? p.points.map(pt => pt.text + ' | ' + pt.scene).join('\n')
+    : '';
+  document.getElementById('m-worries').value = p ? p.worries.join('\n') : '';
+  document.getElementById('m-featured').value = p && p.featured ? '1' : '0';
+
+  document.getElementById('prod-modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('prod-modal-overlay').classList.remove('open');
+  editingId = null;
+}
+
+function saveProduct() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { alert('产品名称不能为空'); return; }
+
+  const priceRaw = document.getElementById('m-price').value.trim();
+  const pointsRaw = document.getElementById('m-points').value.trim();
+
+  const prod = {
+    id: editingId || Date.now(),
+    name,
+    tag: document.getElementById('m-tag').value.trim() || '其他',
+    desc: document.getElementById('m-desc').value.trim(),
+    price: priceRaw ? parseFloat(priceRaw) : null,
+    priceUnit: document.getElementById('m-price-unit').value.trim(),
+    featured: document.getElementById('m-featured').value === '1',
+    perks: document.getElementById('m-perks').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 3),
+    fit: document.getElementById('m-fit').value.split('\n').map(s => s.trim()).filter(Boolean),
+    value: document.getElementById('m-value').value.trim(),
+    points: pointsRaw ? pointsRaw.split('\n').map(line => {
+      const [text, scene] = line.split('|').map(s => s.trim());
+      return { text: text || '', scene: scene || '' };
+    }).filter(p => p.text) : [],
+    worries: document.getElementById('m-worries').value.split('\n').map(s => s.trim()).filter(Boolean)
+  };
+
+  if (editingId) {
+    const idx = products.findIndex(x => x.id === editingId);
+    if (idx >= 0) products[idx] = prod;
+  } else {
+    products.push(prod);
+  }
+
+  saveProducts(products);
+  closeModal();
+  renderCards();
+
+  if (activeProductId === editingId) selectProduct(editingId);
+}
+
+function deleteProduct() {
+  if (!editingId) return;
+  if (!confirm('确定删除这个产品？')) return;
+  products = products.filter(p => p.id !== editingId);
+  saveProducts(products);
+  if (activeProductId === editingId) closeDetail();
+  closeModal();
+  renderCards();
+}
+
+/* ── Search ── */
+document.getElementById('prod-search').addEventListener('input', function() {
+  searchQuery = this.value.trim();
+  renderCards();
+});
+
+/* ── AI Integration: expose product card for prompt injection ── */
+window.getProductCard = function(name) {
+  const p = products.find(x => x.name === name || x.name.includes(name));
+  if (!p) return null;
+  return [
+    `【产品卡：${p.name}】`,
+    p.price ? `价格：¥${p.price}${p.priceUnit}` : '',
+    `核心价值：${p.value}`,
+    `适合谁：${p.fit.join('、')}`,
+    `权益：${p.perks.join('；')}`,
+    p.points.length ? `核心卖点：\n${p.points.map((pt, i) => `${i+1}. ${pt.text}（${pt.scene}）`).join('\n')}` : '',
+    p.worries.length ? `常见顾虑：\n${p.worries.map(w => '· ' + w).join('\n')}` : ''
+  ].filter(Boolean).join('\n');
+};
+
+window.getAllProducts = function() {
+  return products;
+};
+
+/* ── Utils ── */
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Init ── */
+(async () => {
+  products = await loadProductsFromServer();
+  // 如果服务器没有数据，把默认数据保存上去
+  if (!products.length) {
+    products = DEFAULT_PRODUCTS.map(p => ({ ...p }));
+    saveProducts(products);
+  }
+  renderCards();
+})();
+
+// Close modal on overlay click
+document.getElementById('prod-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
 </body>
 </html>

@@ -2,18 +2,912 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>对话框 — 金币猎人 2.0</title>
-  <link rel="stylesheet" href="../style.css">
+  <title>对话框</title>
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: -apple-system, 'PingFang SC', 'SF Pro Text', sans-serif; background: #141414; color: #d0d0d0; font-size: 13px; }
+    button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
+    input, textarea { font: inherit; color: inherit; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    /* ── Layout ── */
+    #page-chat { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Left Column ── */
+    #col-left {
+      width: 18%; min-width: 160px; max-width: 320px;
+      background: #1c1c1c; border-right: 1px solid #2a2a2a;
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    #col-left-header {
+      display: flex; align-items: center; gap: 6px;
+      padding: 10px 10px 8px; border-bottom: 1px solid #252525;
+    }
+    #search-input {
+      flex: 1; background: #252525; border: 1px solid #333; border-radius: 6px;
+      padding: 5px 8px; font-size: 12px; color: #d0d0d0; outline: none;
+    }
+    #search-input::placeholder { color: #444; }
+    #search-input:focus { border-color: #444; }
+    .icon-btn {
+      width: 28px; height: 28px; border-radius: 6px; background: #252525;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: #666; transition: all 0.15s; flex-shrink: 0;
+    }
+    .icon-btn:hover { background: #2e2e2e; color: #999; }
+    #customer-list { flex: 1; overflow-y: auto; }
+
+    /* Customer card */
+    .customer-card {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 10px 10px 12px;
+      border-bottom: 1px solid #222; cursor: pointer;
+      position: relative; transition: background 0.1s;
+    }
+    .customer-card:hover { background: #222; }
+    .customer-card.active { background: #252525; }
+    .customer-card.active::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: #f0b429; border-radius: 0 2px 2px 0;
+    }
+    .card-avatar {
+      width: 38px; height: 38px; border-radius: 8px;
+      background: #2a2a2a; display: flex; align-items: center;
+      justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+    .card-body { flex: 1; min-width: 0; }
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; }
+    .card-name { font-size: 13px; color: #d0d0d0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100px; }
+    .card-time { font-size: 10px; color: #444; flex-shrink: 0; margin-left: 4px; }
+    .card-preview { font-size: 11px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    .card-badge {
+      position: absolute; right: 8px; bottom: 9px;
+      font-size: 9px; color: #444; background: #252525; border: 1px solid #333;
+      padding: 0 3px; border-radius: 3px; line-height: 14px;
+    }
+    .card-badge.badge-main { color: #f0b429; border-color: #3a3020; }
+
+    /* ── Drag Handle ── */
+    .drag-handle { width: 4px; background: transparent; cursor: col-resize; flex-shrink: 0; transition: background 0.15s; }
+    .drag-handle:hover, .drag-handle.dragging { background: #333; }
+
+    /* ── Middle Column ── */
+    #col-mid { flex: 1; min-width: 300px; background: #1a1a1a; display: flex; flex-direction: column; overflow: hidden; }
+    #mid-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 14px; border-bottom: 1px solid #252525;
+      background: #1c1c1c; flex-shrink: 0; min-height: 40px;
+    }
+    #mid-customer-name { font-size: 13px; font-weight: 600; color: #d0d0d0; }
+    #mid-info { font-size: 11px; color: #444; }
+    #mid-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: #333; font-size: 14px; flex-direction: column; gap: 8px;
+    }
+
+    /* Chat area */
+    #chat-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+    .time-divider { text-align: center; font-size: 10px; color: #444; margin: 6px 0; user-select: none; }
+    .bubble-row { display: flex; align-items: flex-end; gap: 6px; }
+    .bubble-row.mine { flex-direction: row-reverse; }
+    .bubble {
+      max-width: 68%; padding: 8px 11px; border-radius: 10px;
+      font-size: 13px; line-height: 1.5; word-break: break-word;
+      cursor: pointer; transition: opacity 0.1s;
+    }
+    .bubble:hover { opacity: 0.85; }
+    .bubble.theirs { background: #252525; color: #d0d0d0; border-radius: 10px 10px 10px 3px; }
+    .bubble.mine { background: #2a2a2a; color: #d0d0d0; border-radius: 10px 10px 3px 10px; }
+
+    /* Row drag divider */
+    #chat-drag-divider {
+      height: 4px; background: #222; cursor: row-resize;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    }
+    #chat-drag-divider::after { content: ''; width: 32px; height: 2px; background: #2e2e2e; border-radius: 1px; }
+    #chat-drag-divider:hover { background: #2a2a2a; }
+
+    /* Battle bar */
+    #battle-bar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; background: #1c1c1c; border-top: 1px solid #252525;
+      border-bottom: 1px solid #252525; flex-shrink: 0; min-height: 38px; position: relative;
+    }
+    #emoji-trigger { font-size: 16px; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background 0.1s; user-select: none; flex-shrink: 0; }
+    #emoji-trigger:hover { background: #2a2a2a; }
+    #product-select { background: #252525; border: 1px solid #333; border-radius: 5px; color: #d0d0d0; font-size: 11px; padding: 3px 6px; outline: none; cursor: pointer; flex-shrink: 0; }
+    #product-select option { background: #252525; }
+    #progress-bar { flex: 1; height: 24px; background: #252525; border-radius: 4px; position: relative; overflow: hidden; cursor: pointer; min-width: 80px; border: 1px solid #333; }
+    #progress-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #f0b429; transition: width 0.3s ease; opacity: 0.9; }
+    #progress-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #d0d0d0; z-index: 1; white-space: nowrap; }
+    #progress-bar .stage-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #333; z-index: 2; }
+    #fire-btn { background: #1a1a1a; border: 1px solid #333; border-radius: 5px; color: #f0b429; font-size: 14px; padding: 3px 8px; flex-shrink: 0; transition: all 0.15s; }
+    #fire-btn:hover { background: #252525; border-color: #f0b429; }
+
+    /* Emoji picker */
+    #emoji-picker { position: absolute; bottom: 44px; left: 8px; z-index: 100; background: #222; border: 1px solid #333; border-radius: 8px; padding: 10px; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    #emoji-picker.open { display: block; }
+    #emoji-grid { display: grid; grid-template-columns: repeat(6, 28px); gap: 4px; }
+    .emoji-opt { width: 28px; height: 28px; border-radius: 4px; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.1s; }
+    .emoji-opt:hover { background: #2e2e2e; }
+
+    /* Input area */
+    #input-area { display: flex; flex-direction: column; border-top: 1px solid #252525; background: #1a1a1a; flex-shrink: 0; }
+    #msg-textarea { background: transparent; border: none; outline: none; resize: none; color: #d0d0d0; font-size: 13px; line-height: 1.5; padding: 10px 12px; min-height: 100px; max-height: 300px; }
+    #msg-textarea::placeholder { color: #444; }
+
+    /* ── Right Column: AI Chat ── */
+    #col-right { width: 34%; min-width: 240px; max-width: 500px; background: #141414; border-left: 1px solid #222; display: flex; flex-direction: column; flex-shrink: 0; }
+    #right-header { padding: 9px 14px; border-bottom: 1px solid #222; font-size: 11px; color: #f0b429; font-weight: 600; letter-spacing: 1px; background: #0d0d0d; flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
+    #ai-messages { flex: 1; overflow-y: auto; padding: 12px; background: #0d0d0d; display: flex; flex-direction: column; gap: 10px; }
+    .ai-hint { font-size: 11px; color: #333; text-align: center; padding: 16px; line-height: 1.6; }
+    .ai-msg { display: flex; flex-direction: column; gap: 3px; }
+    .ai-msg.user { align-items: flex-end; }
+    .ai-msg.assistant { align-items: flex-start; }
+    .ai-msg-label { font-size: 9px; color: #444; padding: 0 4px; letter-spacing: 0.5px; }
+    .ai-msg-bubble { max-width: 90%; padding: 8px 11px; border-radius: 10px; font-size: 12.5px; line-height: 1.65; word-break: break-word; white-space: pre-wrap; }
+    .ai-msg.user .ai-msg-bubble { background: #2a2a2a; color: #d0d0d0; border-radius: 10px 10px 3px 10px; }
+    .ai-msg.assistant .ai-msg-bubble { background: #1a1a1a; color: #aaa; border: 1px solid #252525; border-radius: 10px 10px 10px 3px; }
+    .ai-cursor { display: inline-block; width: 7px; height: 12px; background: #f0b429; animation: blink 1s step-end infinite; vertical-align: middle; }
+    @keyframes blink { 50% { opacity: 0; } }
+    #ai-drag-divider { height: 4px; background: #222; cursor: row-resize; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    #ai-drag-divider::after { content: ''; width: 32px; height: 2px; background: #2e2e2e; border-radius: 1px; }
+    #ai-drag-divider:hover { background: #2a2a2a; }
+    #ai-input-area { background: #111; flex-shrink: 0; }
+    #ai-input { width: 100%; background: transparent; border: none; outline: none; resize: none; color: #d0d0d0; font-size: 12.5px; line-height: 1.5; padding: 10px 12px; min-height: 64px; max-height: 160px; }
+    #ai-input::placeholder { color: #333; }
+
+    /* Misc */
+    .empty-list { text-align: center; color: #333; padding: 40px 16px; font-size: 12px; }
+  </style>
 </head>
 <body>
 <div id="page-chat">
-  <!-- 业务逻辑待填入 -->
-  <div class="page-placeholder">
-    <span class="icon">💬</span>
-    <p>对话框</p>
+
+  <!-- Left: Customer List -->
+  <div id="col-left">
+    <div id="col-left-header">
+      <input id="search-input" placeholder="搜索客户…" type="text">
+      <button class="icon-btn" id="add-btn" title="新增客户">＋</button>
+      <button class="icon-btn" id="import-btn" title="导入聊天记录">⬆</button>
+    </div>
+    <div id="customer-list">
+      <div class="empty-list">加载中…</div>
+    </div>
   </div>
+
+  <div class="drag-handle" id="drag-left"></div>
+
+  <!-- Middle: Chat -->
+  <div id="col-mid">
+    <div id="mid-header">
+      <span id="mid-customer-name" style="color:#444">未选择客户</span>
+      <span id="mid-info"></span>
+    </div>
+
+    <div id="mid-empty">
+      <span style="font-size:32px">💬</span>
+      从左侧选择一个客户
+    </div>
+
+    <div id="mid-content" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+      <div id="chat-area"></div>
+      <div id="chat-drag-divider"></div>
+      <div id="battle-bar">
+        <span id="emoji-trigger">🔥</span>
+        <span style="font-size:10px;color:#444">▼</span>
+        <select id="product-select"><option value="">选产品</option></select>
+        <div id="progress-bar">
+          <div id="progress-fill"></div>
+          <div id="progress-label">建立链接</div>
+        </div>
+        <button id="fire-btn">🏹 出击</button>
+        <div id="emoji-picker"><div id="emoji-grid"></div></div>
+      </div>
+      <div id="input-area">
+        <textarea id="msg-textarea" placeholder="在这里粘贴消息，回车自动分析…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="drag-handle" id="drag-right"></div>
+
+  <!-- Right: AI Chat -->
+  <div id="col-right">
+    <div id="right-header">
+      <span>🏹</span><span>AI 助理</span>
+    </div>
+    <div id="ai-messages">
+      <div class="ai-hint">选择客户后，粘贴聊天记录自动分析<br>或点击 🏹 出击 生成话术，也可以直接提问</div>
+    </div>
+    <div id="ai-drag-divider"></div>
+    <div id="ai-input-area">
+      <textarea id="ai-input" placeholder="直接问 AI…（Enter 发送，Shift+Enter 换行）"></textarea>
+    </div>
+  </div>
+
 </div>
-<script src="../app.js"></script>
+<script>
+/* ── State ── */
+let config = {};
+let customers = [];
+let totalCustomers = 0;
+let currentOffset = 0;
+const PAGE_SIZE = 80;
+let activeCustomer = null;
+let messages = [];
+let currentStage = 0;
+let currentProduct = '';
+let emojiPickerOpen = false;
+let loadingMore = false;
+// aiStateMap 持久化到 localStorage
+function loadAiStateMap() {
+  try { return JSON.parse(localStorage.getItem('gh_ai_state') || '{}'); } catch(e) { return {}; }
+}
+function saveAiStateMap() {
+  try { localStorage.setItem('gh_ai_state', JSON.stringify(aiStateMap)); } catch(e) {}
+}
+const aiStateMap = loadAiStateMap();
+
+/* ── Boot ── */
+async function init() {
+  config = await fetch('/api/config').then(r => r.json());
+  setupDragHandles();
+  setupBattleBar();
+  setupInput();
+  setupAiInput();
+  setupSearch();
+  setupAddCustomer();
+  setupImport();
+  await loadCustomers();
+}
+
+/* ── Customer List ── */
+async function loadCustomers(search = '') {
+  currentOffset = 0;
+  const url = `/api/customers?limit=${PAGE_SIZE}&offset=0${search ? `&search=${encodeURIComponent(search)}` : ''}`;
+  const data = await fetch(url).then(r => r.json());
+  customers = data.customers || data;
+  totalCustomers = data.total || customers.length;
+  renderCustomerList();
+}
+
+async function loadMoreCustomers() {
+  if (loadingMore || customers.length >= totalCustomers) return;
+  loadingMore = true;
+  currentOffset += PAGE_SIZE;
+  const search = document.getElementById('search-input').value;
+  const url = `/api/customers?limit=${PAGE_SIZE}&offset=${currentOffset}${search ? `&search=${encodeURIComponent(search)}` : ''}`;
+  const data = await fetch(url).then(r => r.json());
+  customers = [...customers, ...(data.customers || data)];
+  renderCustomerList();
+  loadingMore = false;
+}
+
+function renderCustomerList() {
+  const list = document.getElementById('customer-list');
+  if (customers.length === 0) {
+    list.innerHTML = '<div class="empty-list">暂无客户，点击 ⬆ 导入聊天记录</div>';
+    return;
+  }
+  list.innerHTML = customers.map(c => customerCardHTML(c)).join('');
+  if (customers.length < totalCustomers) {
+    list.innerHTML += `<div class="empty-list" style="color:#444;font-size:11px">显示 ${customers.length} / ${totalCustomers}，向下滚动加载更多</div>`;
+  }
+  list.querySelectorAll('.customer-card').forEach(el => {
+    el.addEventListener('click', () => selectCustomer(el.dataset.id));
+  });
+  list.onscroll = () => {
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 100) loadMoreCustomers();
+  };
+}
+
+function customerCardHTML(c) {
+  const active = activeCustomer?.id === c.id ? 'active' : '';
+  const label = config.accountLabels?.[c.account] || '';
+  const time = formatTime(c.lastTime);
+  const preview = escHtml(c.lastMessage || '');
+  return `
+    <div class="customer-card ${active}" data-id="${c.id}">
+      <div class="card-avatar">${c.statusEmoji || '🔥'}</div>
+      <div class="card-body">
+        <div class="card-top">
+          <span class="card-name">${escHtml(c.name)}</span>
+          <span class="card-time">${time}</span>
+        </div>
+        <div class="card-preview">${preview}</div>
+      </div>
+      ${label ? `<span class="card-badge ${label === '主' ? 'badge-main' : ''}">${label}</span>` : ''}
+    </div>`;
+}
+
+async function selectCustomer(id) {
+  activeCustomer = customers.find(c => c.id === id);
+  if (!activeCustomer) return;
+
+  currentStage = activeCustomer.progressStage || 0;
+  currentProduct = activeCustomer.activeProduct || '';
+
+  document.getElementById('mid-customer-name').textContent = activeCustomer.name;
+  document.getElementById('mid-info').textContent = `${activeCustomer.messageCount || 0} 条消息`;
+
+  document.getElementById('mid-empty').style.display = 'none';
+  const midContent = document.getElementById('mid-content');
+  midContent.style.display = 'flex';
+  midContent.style.flex = '1';
+  midContent.style.flexDirection = 'column';
+  midContent.style.overflow = 'hidden';
+
+  document.querySelectorAll('.customer-card').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+
+  await updateProductSelect();
+  updateProgressBar();
+  document.getElementById('emoji-trigger').textContent = activeCustomer.statusEmoji || '🔥';
+  if (currentProduct) document.getElementById('product-select').value = currentProduct;
+
+  messages = await fetch(`/api/customers/${id}/messages`).then(r => r.json());
+  // 加载之前粘贴的额外消息
+  try {
+    const extra = JSON.parse(localStorage.getItem(`gh_extra_msgs_${id}`) || '[]');
+    if (extra.length) messages = [...messages, ...extra];
+  } catch(e) {}
+  renderChat();
+  restoreAiMessages(id);
+}
+
+/* ── Chat ── */
+function renderChat() {
+  const area = document.getElementById('chat-area');
+  if (messages.length === 0) {
+    area.innerHTML = '<div class="empty-list">暂无消息记录</div>';
+    return;
+  }
+
+  let html = '';
+  let lastDate = '';
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const isMine = m.sender === config.mySenderName;
+    const date = m.time ? m.time.split(' ')[0] : '';
+    if (date && date !== lastDate) {
+      html += `<div class="time-divider">${escHtml(m.time || '')}</div>`;
+      lastDate = date;
+    } else if (i > 0 && shouldShowTime(messages[i-1], m)) {
+      html += `<div class="time-divider">${escHtml(m.time || '')}</div>`;
+    }
+    html += `
+      <div class="bubble-row ${isMine ? 'mine' : 'theirs'}" data-idx="${i}">
+        <div class="bubble ${isMine ? 'mine' : 'theirs'}">${escHtml(m.content || '')}</div>
+      </div>`;
+  }
+
+  area.innerHTML = html;
+  area.scrollTop = area.scrollHeight;
+
+  area.querySelectorAll('.bubble').forEach(b => {
+    b.addEventListener('click', (e) => {
+      const row = e.target.closest('.bubble-row');
+      const idx = parseInt(row.dataset.idx);
+      const wasOwner = messages[idx].sender === config.mySenderName;
+      messages[idx].sender = wasOwner ? '__other__' : config.mySenderName;
+      renderChat();
+    });
+  });
+}
+
+function shouldShowTime(prev, curr) {
+  if (!prev.timestamp || !curr.timestamp) return false;
+  return curr.timestamp - prev.timestamp > 300;
+}
+
+/* ── Battle Bar ── */
+function setupBattleBar() {
+  document.getElementById('emoji-trigger').addEventListener('click', (e) => {
+    e.stopPropagation();
+    emojiPickerOpen = !emojiPickerOpen;
+    document.getElementById('emoji-picker').classList.toggle('open', emojiPickerOpen);
+    if (emojiPickerOpen) renderEmojiPicker();
+  });
+
+  document.addEventListener('click', () => {
+    emojiPickerOpen = false;
+    document.getElementById('emoji-picker').classList.remove('open');
+  });
+
+  document.getElementById('emoji-picker').addEventListener('click', e => e.stopPropagation());
+
+  document.getElementById('product-select').addEventListener('change', async (e) => {
+    currentProduct = e.target.value;
+    if (activeCustomer) {
+      await fetch(`/api/customers/${activeCustomer.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activeProduct: currentProduct })
+      });
+    }
+  });
+
+  document.getElementById('progress-bar').addEventListener('click', (e) => {
+    const bar = e.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    const stages = config.progressStages || [];
+    setStage(Math.min(Math.floor(pct * stages.length), stages.length - 1));
+  });
+
+  document.getElementById('fire-btn').addEventListener('click', () => {
+    if (activeCustomer) runTactics();
+  });
+}
+
+function renderEmojiPicker() {
+  const grid = document.getElementById('emoji-grid');
+  grid.innerHTML = (config.emojis || []).map(e =>
+    `<div class="emoji-opt" data-emoji="${e}">${e}</div>`
+  ).join('');
+  grid.querySelectorAll('.emoji-opt').forEach(el => {
+    el.addEventListener('click', async () => {
+      const emoji = el.dataset.emoji;
+      document.getElementById('emoji-trigger').textContent = emoji;
+      if (activeCustomer) {
+        activeCustomer.statusEmoji = emoji;
+        await fetch(`/api/customers/${activeCustomer.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ statusEmoji: emoji })
+        });
+        customers = customers.map(c => c.id === activeCustomer.id ? { ...c, statusEmoji: emoji } : c);
+        renderCustomerList();
+      }
+      emojiPickerOpen = false;
+      document.getElementById('emoji-picker').classList.remove('open');
+    });
+  });
+}
+
+async function updateProductSelect() {
+  const sel = document.getElementById('product-select');
+  let prodNames = config.products || [];
+  try {
+    const libProds = await fetch('/api/products').then(r => r.json());
+    if (libProds && libProds.length) prodNames = libProds.map(p => p.name);
+  } catch(e) {}
+  sel.innerHTML = '<option value="">选产品</option>' +
+    prodNames.map(p => `<option value="${escHtml(p)}">${escHtml(p)}</option>`).join('');
+  if (currentProduct) sel.value = currentProduct;
+}
+
+function updateProgressBar() {
+  const stages = config.progressStages || [];
+  const pct = stages.length > 1 ? ((currentStage + 1) / stages.length) * 100 : 100;
+  document.getElementById('progress-fill').style.width = `${pct}%`;
+  const bar = document.getElementById('progress-bar');
+  const label = document.getElementById('progress-label');
+  const barWidth = bar.getBoundingClientRect().width || bar.offsetWidth;
+  const stageName = stages[currentStage] || '';
+  if (barWidth > 200) label.textContent = stageName;
+  else if (barWidth > 120) label.textContent = stageName.slice(0, 2);
+  else label.textContent = `${currentStage + 1}/${stages.length}`;
+  bar.querySelectorAll('.stage-tick').forEach(t => t.remove());
+  stages.forEach((_, i) => {
+    if (i === 0) return;
+    const tick = document.createElement('div');
+    tick.className = 'stage-tick';
+    tick.style.left = `${(i / (stages.length - 1)) * 100}%`;
+    bar.appendChild(tick);
+  });
+}
+
+async function setStage(stage) {
+  currentStage = stage;
+  updateProgressBar();
+  if (activeCustomer) {
+    activeCustomer.progressStage = stage;
+    await fetch(`/api/customers/${activeCustomer.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ progressStage: stage })
+    });
+  }
+}
+
+/* ── Paste Input → Parse into bubbles + Analyze ── */
+function setupInput() {
+  const ta = document.getElementById('msg-textarea');
+  ta.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = ta.value.trim();
+      if (!text || !activeCustomer) return;
+      ta.value = '';
+      parsePasteIntoChat(text);
+      await runAnalyze(text);
+    }
+  });
+}
+
+// 把粘贴的文本解析成消息，追加到中间聊天区
+function parsePasteIntoChat(raw) {
+  const myName = config.mySenderName || '';
+  const customerName = activeCustomer?.name || '';
+
+  // 按行拆分，过滤空行
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+
+  const parsed = [];
+  for (const line of lines) {
+    // 跳过纯时间戳行（如 "2024/1/15 14:30:00"）
+    if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(line) && line.length < 25) continue;
+
+    // 判断是否以"名字:" 或 "名字：" 开头
+    const colonIdx = line.search(/[：:]/);
+    if (colonIdx > 0 && colonIdx < 20) {
+      const prefix = line.slice(0, colonIdx).trim();
+      const content = line.slice(colonIdx + 1).trim();
+      if (!content) continue;
+      const isMine = myName && prefix.includes(myName);
+      parsed.push({ sender: isMine ? myName : customerName, content });
+    } else {
+      // 没有明确发言人，默认对方说的
+      parsed.push({ sender: customerName, content: line });
+    }
+  }
+
+  if (parsed.length === 0) return;
+
+  // 追加到 messages 并重新渲染
+  messages = [...messages, ...parsed];
+  renderChat();
+
+  // 持久化额外粘贴的消息
+  if (activeCustomer) {
+    try {
+      const key = `gh_extra_msgs_${activeCustomer.id}`;
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      localStorage.setItem(key, JSON.stringify([...existing, ...parsed]));
+    } catch(e) {}
+  }
+
+  // 自动滚动到底部
+  const area = document.getElementById('chat-area');
+  area.scrollTop = area.scrollHeight;
+}
+
+/* ── AI Chat ── */
+
+function getAiState(id) {
+  const cid = id || activeCustomer?.id;
+  if (!cid) return { history: [], messages: [] };
+  if (!aiStateMap[cid]) aiStateMap[cid] = { history: [], messages: [] };
+  return aiStateMap[cid];
+}
+
+function saveAiMsg(role, label, content) {
+  if (!activeCustomer) return;
+  getAiState().messages.push({ role, label, content });
+  saveAiStateMap();
+}
+
+function restoreAiMessages(customerId) {
+  const container = document.getElementById('ai-messages');
+  container.innerHTML = '';
+  const state = getAiState(customerId);
+  if (state.messages.length === 0) {
+    container.innerHTML = '<div class="ai-hint">选择客户后，粘贴聊天记录自动分析<br>或点击 🏹 出击 生成话术，也可以直接提问</div>';
+    return;
+  }
+  for (const msg of state.messages) addAiMsg(msg.role, msg.label, msg.content);
+}
+
+function setupAiInput() {
+  const ta = document.getElementById('ai-input');
+  ta.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = ta.value.trim();
+      if (!text) return;
+      ta.value = '';
+      await sendAiMessage(text);
+    }
+  });
+
+  const divider = document.getElementById('ai-drag-divider');
+  const messagesEl = document.getElementById('ai-messages');
+  const inputArea = document.getElementById('ai-input-area');
+  let startY, startMsgH, startInputH;
+
+  divider.addEventListener('mousedown', (e) => {
+    startY = e.clientY;
+    startMsgH = messagesEl.offsetHeight;
+    startInputH = inputArea.offsetHeight;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    const onMove = (e) => {
+      const dy = e.clientY - startY;
+      messagesEl.style.height = Math.max(80, startMsgH + dy) + 'px';
+      messagesEl.style.flex = 'none';
+      inputArea.style.height = Math.max(48, startInputH - dy) + 'px';
+      ta.style.height = Math.max(40, startInputH - dy - 4) + 'px';
+    };
+    const onUp = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function addAiMsg(role, label, initialText = '') {
+  const container = document.getElementById('ai-messages');
+  container.querySelector('.ai-hint')?.remove();
+  const msgEl = document.createElement('div');
+  msgEl.className = `ai-msg ${role}`;
+  const labelEl = document.createElement('div');
+  labelEl.className = 'ai-msg-label';
+  labelEl.textContent = label;
+  const bubbleEl = document.createElement('div');
+  bubbleEl.className = 'ai-msg-bubble';
+  bubbleEl.textContent = initialText;
+  msgEl.appendChild(labelEl);
+  msgEl.appendChild(bubbleEl);
+  container.appendChild(msgEl);
+  container.scrollTop = container.scrollHeight;
+  return bubbleEl;
+}
+
+async function streamIntoBubble(res, bubbleEl) {
+  const cursor = document.createElement('span');
+  cursor.className = 'ai-cursor';
+  bubbleEl.appendChild(cursor);
+  const container = document.getElementById('ai-messages');
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '', fullText = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[DONE]') { cursor.remove(); continue; }
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.text) {
+          fullText += parsed.text;
+          cursor.remove();
+          bubbleEl.textContent = fullText;
+          bubbleEl.appendChild(cursor);
+          container.scrollTop = container.scrollHeight;
+        }
+        if (parsed.error) { cursor.remove(); bubbleEl.textContent += `\n[错误: ${parsed.error}]`; }
+      } catch { /* skip */ }
+    }
+  }
+  cursor.remove();
+  return fullText;
+}
+
+async function runAnalyze(pastedText) {
+  if (!activeCustomer) return;
+  const userContent = pastedText.slice(0, 60) + (pastedText.length > 60 ? '…' : '');
+  addAiMsg('user', '粘贴分析', userContent);
+  saveAiMsg('user', '粘贴分析', userContent);
+  const bubbleEl = addAiMsg('assistant', '📊 分析中…');
+  try {
+    const res = await fetch('/api/ai/analyze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: messages.slice(-30), customerName: activeCustomer.name, pastedText })
+    });
+    const fullText = await streamIntoBubble(res, bubbleEl);
+    bubbleEl.previousSibling.textContent = '📊 分析';
+    saveAiMsg('assistant', '📊 分析', fullText);
+    getAiState().history.push({ role: 'assistant', content: fullText });
+  } catch (e) { bubbleEl.textContent = `错误: ${e.message}`; }
+}
+
+async function runTactics() {
+  if (!activeCustomer) return;
+
+  // 感知客户状态
+  const lastMsg = messages[messages.length - 1];
+  let daysSince = null, phase = '跟进';
+  if (lastMsg?.time) {
+    const lastMs = new Date(lastMsg.time.replace(' ', 'T')).getTime();
+    if (!isNaN(lastMs)) daysSince = Math.floor((Date.now() - lastMs) / 86400000);
+  }
+  if (daysSince !== null && daysSince > 30) phase = '唤醒';
+  else if (messages.length < 10) phase = '新客';
+
+  const contactDesc = daysSince === 0 ? '今天' : daysSince === 1 ? '昨天' : daysSince != null ? `${daysSince}天前` : '';
+  const userContent = `🏹 出击 — ${phase}${contactDesc ? `（${contactDesc}）` : ''}`;
+  addAiMsg('user', '操作', userContent);
+  saveAiMsg('user', '操作', userContent);
+  const bubbleEl = addAiMsg('assistant', '🏹 生成中…');
+
+  // 从产品库取产品卡
+  let productCard = null;
+  try {
+    const prods = await fetch('/api/products').then(r => r.json());
+    const p = prods.find(x => x.name === currentProduct || (currentProduct && x.name.includes(currentProduct)));
+    if (p) {
+      productCard = [
+        `【产品卡：${p.name}】`,
+        p.price ? `价格：¥${p.price}${p.priceUnit || ''}` : '',
+        p.value ? `核心价值：${p.value}` : '',
+        p.fit?.length ? `适合谁：${p.fit.join('、')}` : '',
+        p.perks?.length ? `权益：${p.perks.join('；')}` : '',
+        p.points?.length ? `核心卖点：\n${p.points.map((pt, i) => `${i+1}. ${pt.text}（${pt.scene}）`).join('\n')}` : '',
+        p.worries?.length ? `常见顾虑：\n${p.worries.map(w => '· ' + w).join('\n')}` : ''
+      ].filter(Boolean).join('\n');
+    }
+  } catch(e) {}
+
+  // 从话术库取匹配话术（按产品+阶段）
+  let sampleScripts = [];
+  try {
+    const stageMap = { '建立链接': '建立连接', '同步信息': '建立连接', '挖掘需求': '挖掘需求', '解决顾虑': '解决顾虑', '达成成交': '最后成交' };
+    const cfg = await fetch('/api/config').then(r=>r.json()).catch(()=>({progressStages:[]}));
+    const stageName = cfg.progressStages?.[currentStage] || '';
+    const mappedStage = stageMap[stageName] || '';
+    const scriptData = JSON.parse(localStorage.getItem('gh_scripts_v5') || '{"scripts":[]}');
+    sampleScripts = (scriptData.scripts || [])
+      .filter(s => (!currentProduct || s.product === currentProduct) && (!mappedStage || s.stage === mappedStage))
+      .sort((a, b) => (b.rate || 0) - (a.rate || 0))
+      .slice(0, 5)
+      .map(s => s.content || s.label);
+  } catch(e) {}
+
+  try {
+    const res = await fetch('/api/ai/tactics', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: messages.slice(-20), customerName: activeCustomer.name, product: currentProduct, progressStage: currentStage, daysSince, phase, productCard, sampleScripts })
+    });
+    const fullText = await streamIntoBubble(res, bubbleEl);
+    bubbleEl.previousSibling.textContent = '🏹 话术';
+    saveAiMsg('assistant', '🏹 话术', fullText);
+    getAiState().history.push({ role: 'assistant', content: fullText });
+  } catch (e) { bubbleEl.textContent = `错误: ${e.message}`; }
+}
+
+async function sendAiMessage(text) {
+  if (!activeCustomer) {
+    addAiMsg('assistant', 'AI', '请先选择一个客户');
+    return;
+  }
+  const state = getAiState();
+  state.history.push({ role: 'user', content: text });
+  addAiMsg('user', '你', text);
+  saveAiMsg('user', '你', text);
+  const bubbleEl = addAiMsg('assistant', 'AI 回复中…');
+  try {
+    const res = await fetch('/api/ai/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history: state.history.slice(-20), customerName: activeCustomer.name, recentMessages: messages.slice(-20) })
+    });
+    const fullText = await streamIntoBubble(res, bubbleEl);
+    bubbleEl.previousSibling.textContent = 'AI';
+    saveAiMsg('assistant', 'AI', fullText);
+    state.history.push({ role: 'assistant', content: fullText });
+  } catch (e) { bubbleEl.textContent = `错误: ${e.message}`; }
+}
+
+/* ── Drag Handles ── */
+function setupDragHandles() {
+  setupColDrag('drag-left', 'col-left', true);
+  setupColDrag('drag-right', 'col-right', false);
+  setupRowDrag();
+}
+
+function setupColDrag(handleId, colId, leftSide) {
+  const handle = document.getElementById(handleId);
+  const col = document.getElementById(colId);
+  let startX, startW;
+  handle.addEventListener('mousedown', (e) => {
+    startX = e.clientX; startW = col.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    const onMove = (e) => {
+      const dx = leftSide ? e.clientX - startX : startX - e.clientX;
+      col.style.width = Math.max(160, Math.min(500, startW + dx)) + 'px';
+    };
+    const onUp = () => {
+      handle.classList.remove('dragging');
+      document.body.style.cursor = ''; document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+function setupRowDrag() {
+  const divider = document.getElementById('chat-drag-divider');
+  const chatArea = document.getElementById('chat-area');
+  const inputArea = document.getElementById('input-area');
+  let startY, startChatH, startInputH;
+  divider.addEventListener('mousedown', (e) => {
+    startY = e.clientY; startChatH = chatArea.offsetHeight; startInputH = inputArea.offsetHeight;
+    document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none';
+    const onMove = (e) => {
+      const dy = e.clientY - startY;
+      chatArea.style.height = Math.max(100, startChatH + dy) + 'px';
+      chatArea.style.flex = 'none';
+      inputArea.style.height = Math.max(60, startInputH - dy) + 'px';
+      document.getElementById('msg-textarea').style.minHeight = Math.max(40, startInputH - dy - 20) + 'px';
+    };
+    const onUp = () => {
+      document.body.style.cursor = ''; document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+/* ── Search / Add / Import ── */
+function setupSearch() {
+  document.getElementById('search-input').addEventListener('input', (e) => loadCustomers(e.target.value));
+}
+
+function setupAddCustomer() {
+  document.getElementById('add-btn').addEventListener('click', async () => {
+    const name = prompt('输入客户微信名：');
+    if (!name) return;
+    const res = await fetch('/api/customers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, account: 'manual' })
+    });
+    if (res.ok) await loadCustomers();
+  });
+}
+
+function setupImport() {
+  document.getElementById('import-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('import-btn');
+    btn.textContent = '…';
+    btn.disabled = true;
+    try {
+      const data = await fetch('/api/import', { method: 'POST' }).then(r => r.json());
+      alert(`✓ 新增 ${data.imported} 个客户，已存在 ${data.skipped} 个`);
+      await loadCustomers();
+    } catch (e) {
+      alert(`✗ 导入失败: ${e.message}`);
+    } finally {
+      btn.textContent = '⬆'; btn.disabled = false;
+    }
+  });
+}
+
+/* ── Utils ── */
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatTime(timeStr) {
+  if (!timeStr) return '';
+  const d = new Date(timeStr.replace(' ', 'T'));
+  if (isNaN(d)) return timeStr.slice(0, 10);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth()+1}月${d.getDate()}日`;
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+}
+
+/* ── Start ── */
+init();
+</script>
 </body>
 </html>

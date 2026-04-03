@@ -4,16 +4,1413 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>通讯录 — 金币猎人 2.0</title>
-  <link rel="stylesheet" href="../style.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'PingFang SC', sans-serif;
+      background: #141414;
+      color: #d0d0d0;
+      font-size: 13px;
+    }
+    button, input, textarea {
+      font: inherit;
+      color: inherit;
+    }
+    button {
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+    input, textarea {
+      outline: none;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #303030; border-radius: 999px; }
+
+    #page-contacts {
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(212,160,23,0.08), transparent 30%),
+        linear-gradient(180deg, #161616 0%, #141414 100%);
+    }
+
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: #1c1c1c;
+      border-right: 1px solid #2a2a2a;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .sidebar-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid #252525;
+    }
+    .sidebar-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #efefef;
+      margin-bottom: 4px;
+    }
+    .sidebar-subtitle {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+    .search-wrap {
+      position: relative;
+    }
+    #search-input {
+      width: 100%;
+      height: 36px;
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 0 36px 0 12px;
+      color: #d0d0d0;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    #search-input::placeholder { color: #555; }
+    #search-input:focus {
+      border-color: #4a3a14;
+      background: #282828;
+    }
+    .search-icon {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #555;
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    .sidebar-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 14px 12px 18px;
+    }
+    .section {
+      margin-bottom: 18px;
+    }
+    .section-title {
+      font-size: 10px;
+      letter-spacing: 0.8px;
+      color: #676767;
+      margin: 0 4px 10px;
+      text-transform: uppercase;
+    }
+    .filter-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .filter-btn,
+    .tag-filter {
+      width: 100%;
+      border: 1px solid #2b2b2b;
+      background: #202020;
+      border-radius: 10px;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px 0 12px;
+      color: #a8a8a8;
+      transition: all 0.15s ease;
+    }
+    .filter-btn:hover,
+    .tag-filter:hover {
+      background: #242424;
+      border-color: #353535;
+      color: #d0d0d0;
+    }
+    .filter-btn.active,
+    .tag-filter.active {
+      background: rgba(212,160,23,0.12);
+      border-color: rgba(212,160,23,0.32);
+      color: #f1d27a;
+      box-shadow: inset 0 0 0 1px rgba(212,160,23,0.08);
+    }
+    .filter-name,
+    .tag-filter-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .filter-count,
+    .tag-filter-count {
+      min-width: 22px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: #282828;
+      border: 1px solid #333;
+      font-size: 10px;
+      line-height: 18px;
+      text-align: center;
+      color: #777;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+    .filter-btn.active .filter-count,
+    .tag-filter.active .tag-filter-count {
+      background: rgba(212,160,23,0.14);
+      border-color: rgba(212,160,23,0.28);
+      color: #e5c66b;
+    }
+    .tag-empty {
+      color: #555;
+      background: #191919;
+      border: 1px dashed #2b2b2b;
+      border-radius: 10px;
+      padding: 12px;
+      line-height: 1.6;
+    }
+
+    .main {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .main-header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid #252525;
+      background: rgba(20, 20, 20, 0.88);
+      backdrop-filter: blur(10px);
+    }
+    .main-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f0f0f0;
+      margin-bottom: 4px;
+    }
+    .main-subtitle {
+      color: #666;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .header-badge {
+      border: 1px solid #2f2f2f;
+      background: #1e1e1e;
+      color: #8a8a8a;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .header-badge.gold {
+      color: #e0bc59;
+      border-color: rgba(212,160,23,0.28);
+      background: rgba(212,160,23,0.08);
+    }
+
+    .grid-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    #cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+      align-content: start;
+    }
+    .contact-card {
+      position: relative;
+      background: linear-gradient(180deg, rgba(34,34,34,0.94), rgba(26,26,26,0.96));
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 16px;
+      min-height: 176px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .contact-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent 46%);
+      pointer-events: none;
+    }
+    .contact-card:hover {
+      transform: translateY(-2px);
+      border-color: #3a3a3a;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+    }
+    .contact-card.active {
+      border-color: rgba(212,160,23,0.44);
+      box-shadow: 0 0 0 1px rgba(212,160,23,0.16), 0 16px 30px rgba(0, 0, 0, 0.32);
+    }
+    .contact-card.high-intent {
+      background:
+        linear-gradient(180deg, rgba(42,34,14,0.62), rgba(26,26,26,0.96)),
+        linear-gradient(180deg, rgba(34,34,34,0.94), rgba(26,26,26,0.96));
+    }
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff6df;
+      flex-shrink: 0;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    }
+    .identity-main {
+      min-width: 0;
+    }
+    .name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      margin-bottom: 5px;
+    }
+    .contact-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ededed;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .source-badge {
+      flex-shrink: 0;
+      height: 20px;
+      line-height: 18px;
+      border-radius: 999px;
+      padding: 0 8px;
+      border: 1px solid #3b3b3b;
+      background: #252525;
+      font-size: 10px;
+      color: #888;
+    }
+    .source-badge.main {
+      color: #d4a017;
+      border-color: rgba(212,160,23,0.28);
+      background: rgba(212,160,23,0.08);
+    }
+    .source-badge.side {
+      color: #a2a2a2;
+      border-color: #3a3a3a;
+    }
+    .meta-line {
+      display: flex;
+      gap: 8px;
+      color: #666;
+      font-size: 11px;
+      flex-wrap: wrap;
+    }
+    .card-note {
+      color: #b8b8b8;
+      line-height: 1.6;
+      min-height: 42px;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+    .card-note.empty {
+      color: #5b5b5b;
+    }
+    .card-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      min-height: 26px;
+      position: relative;
+      z-index: 1;
+    }
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #252525;
+      border: 1px solid #323232;
+      color: #aaaaaa;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 10px;
+      line-height: 1;
+    }
+    .tag-chip.gold {
+      color: #e1bf63;
+      border-color: rgba(212,160,23,0.28);
+      background: rgba(212,160,23,0.08);
+    }
+    .card-footer {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #666;
+      font-size: 11px;
+      position: relative;
+      z-index: 1;
+    }
+    .last-message {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .message-count {
+      flex-shrink: 0;
+      color: #939393;
+    }
+
+    .state-panel {
+      min-height: calc(100vh - 130px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      color: #8b8b8b;
+    }
+    .state-card {
+      max-width: 340px;
+      background: #1b1b1b;
+      border: 1px solid #282828;
+      border-radius: 18px;
+      padding: 28px 24px;
+    }
+    .state-icon {
+      font-size: 28px;
+      margin-bottom: 12px;
+      color: #6d6d6d;
+    }
+    .state-title {
+      font-size: 16px;
+      color: #ececec;
+      margin-bottom: 8px;
+    }
+    .state-text {
+      color: #707070;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .state-action {
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 8px;
+      border: 1px solid #3a2f0f;
+      background: rgba(212,160,23,0.1);
+      color: #d9b24d;
+    }
+    .state-action:hover {
+      background: rgba(212,160,23,0.16);
+    }
+
+    .drawer-mask {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+    }
+    .drawer-mask.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .drawer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: min(400px, 100%);
+      height: 100%;
+      background: #181818;
+      border-left: 1px solid #2a2a2a;
+      transform: translateX(100%);
+      transition: transform 0.22s ease;
+      display: flex;
+      flex-direction: column;
+      z-index: 2;
+      box-shadow: -12px 0 32px rgba(0, 0, 0, 0.32);
+    }
+    .drawer.open {
+      transform: translateX(0);
+    }
+    .drawer-header {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid #252525;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .drawer-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      margin-bottom: 8px;
+    }
+    .drawer-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f0f0f0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .drawer-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #222;
+      border: 1px solid #2f2f2f;
+      color: #8c8c8c;
+      flex-shrink: 0;
+    }
+    .drawer-close:hover {
+      color: #ececec;
+      background: #272727;
+    }
+    .drawer-top-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: #757575;
+      font-size: 11px;
+    }
+    .drawer-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .panel {
+      background: #1f1f1f;
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .panel-label {
+      font-size: 10px;
+      letter-spacing: 0.8px;
+      color: #666;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .stat-box {
+      background: #1a1a1a;
+      border: 1px solid #292929;
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .stat-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #efefef;
+      margin-bottom: 4px;
+    }
+    .stat-value.gold { color: #d4a017; }
+    .stat-key {
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .last-message-full {
+      color: #b8b8b8;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .note-input {
+      width: 100%;
+      min-height: 112px;
+      resize: vertical;
+      background: #181818;
+      border: 1px solid #303030;
+      border-radius: 12px;
+      padding: 11px 12px;
+      line-height: 1.7;
+    }
+    .note-input::placeholder { color: #555; }
+    .note-input:focus {
+      border-color: #4a3a14;
+      background: #1b1b1b;
+    }
+    .tag-entry {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    #tag-input {
+      flex: 1;
+      height: 36px;
+      background: #181818;
+      border: 1px solid #303030;
+      border-radius: 10px;
+      padding: 0 12px;
+    }
+    #tag-input:focus { border-color: #4a3a14; }
+    .hint-text {
+      color: #666;
+      font-size: 11px;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+    .drawer-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .drawer-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 6px 10px 6px 12px;
+      background: #232323;
+      border: 1px solid #343434;
+      color: #d0d0d0;
+    }
+    .tag-remove {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #2d2d2d;
+      color: #8a8a8a;
+      font-size: 11px;
+      line-height: 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .drawer-tag:hover .tag-remove {
+      background: #3a3a3a;
+      color: #d0d0d0;
+    }
+    .drawer-footer {
+      padding: 14px 18px 18px;
+      border-top: 1px solid #252525;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .drawer-footer-text {
+      color: #666;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .jump-btn {
+      height: 38px;
+      padding: 0 16px;
+      border-radius: 10px;
+      background: #d4a017;
+      color: #181818;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(212, 160, 23, 0.22);
+      flex-shrink: 0;
+    }
+    .jump-btn:hover {
+      filter: brightness(1.05);
+    }
+
+    @media (max-width: 980px) {
+      .sidebar { width: 232px; }
+      .drawer { width: min(360px, 100%); }
+    }
+    @media (max-width: 760px) {
+      #page-contacts { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #2a2a2a;
+        max-height: 44vh;
+      }
+      .grid-wrap { padding: 16px; }
+      .drawer { width: 100%; }
+      .main-header {
+        padding: 14px 16px 12px;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-badges { justify-content: flex-start; }
+    }
+  </style>
 </head>
 <body>
 <div id="page-contacts">
-  <!-- 业务逻辑待填入 -->
-  <div class="page-placeholder">
-    <span class="icon">📇</span>
-    <p>通讯录</p>
-  </div>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">通讯录</div>
+      <div class="sidebar-subtitle">按来源、意向和标签筛选客户</div>
+      <div class="search-wrap">
+        <input id="search-input" type="text" placeholder="搜索客户姓名…">
+        <span class="search-icon">⌕</span>
+      </div>
+    </div>
+
+    <div class="sidebar-body">
+      <div class="section">
+        <div class="section-title">分组</div>
+        <div class="filter-list" id="group-filters"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">标签</div>
+        <div id="tag-filters"></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="main-header">
+      <div>
+        <div class="main-title">客户卡片</div>
+        <div class="main-subtitle" id="results-summary">正在加载通讯录…</div>
+      </div>
+      <div class="header-badges">
+        <span class="header-badge" id="total-badge">0 位客户</span>
+        <span class="header-badge gold" id="intent-badge">0 位高意向</span>
+      </div>
+    </div>
+
+    <div class="grid-wrap" id="grid-wrap">
+      <div class="state-panel">
+        <div class="state-card">
+          <div class="state-icon">⌛</div>
+          <div class="state-title">正在加载</div>
+          <div class="state-text">通讯录数据读取中…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-mask" id="drawer-mask"></div>
+    <aside class="drawer" id="detail-drawer" aria-hidden="true">
+      <div class="drawer-header">
+        <div style="min-width:0;flex:1">
+          <div class="drawer-title-row">
+            <div class="drawer-title" id="drawer-name">未选择客户</div>
+            <span class="source-badge" id="drawer-source">来源</span>
+          </div>
+          <div class="drawer-top-meta" id="drawer-meta"></div>
+        </div>
+        <button class="drawer-close" id="drawer-close" type="button">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <section class="panel">
+          <div class="panel-label">消息概览</div>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-value" id="stat-msg-count">0</div>
+              <div class="stat-key">消息数</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="stat-last-time">-</div>
+              <div class="stat-key">最后互动</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value" id="stat-intent">普通</div>
+              <div class="stat-key">意向</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-label">最后一条消息</div>
+          <div class="last-message-full" id="drawer-last-message">暂无消息</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-label">备注</div>
+          <textarea class="note-input" id="note-input" placeholder="记录客户背景、成交节点、需要跟进的点…"></textarea>
+          <div class="hint-text">自动保存到本地，刷新页面后仍保留。</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-label">标签</div>
+          <div class="tag-entry">
+            <input id="tag-input" type="text" placeholder="输入标签后按回车">
+          </div>
+          <div class="drawer-tags" id="drawer-tags"></div>
+          <div class="hint-text">可用于左侧筛选，例如：重点客户、已付定金、待回访。</div>
+        </section>
+      </div>
+
+      <div class="drawer-footer">
+        <div class="drawer-footer-text">切到对话框后，会尽量自动定位这个客户。</div>
+        <button class="jump-btn" id="jump-chat-btn" type="button">去对话</button>
+      </div>
+    </aside>
+  </main>
 </div>
-<script src="../app.js"></script>
+
+<script>
+const META_STORAGE_KEY = 'gh_contacts_meta';
+const PAGE_SIZE = 80;
+const SOURCE_GROUPS = [
+  { key: 'all', label: '全部' },
+  { key: 'main', label: '主号' },
+  { key: 'side', label: '副号' },
+  { key: 'high', label: '高意向' }
+];
+const AVATAR_COLORS = ['#a65d39', '#b7772f', '#8f4f3d', '#9f6a2d', '#b85c38', '#8d5c3a', '#c4702d', '#9f4f2a'];
+
+let config = {};
+let customers = [];
+let filteredCustomers = [];
+let totalCustomers = 0;
+let currentOffset = 0;
+let loadingMore = false;
+let metaMap = loadMetaMap();
+let activeGroup = 'all';
+let activeTag = '';
+let searchKeyword = '';
+let activeCustomerName = '';
+let searchTimer = null;
+let noteSaveTimer = null;
+
+async function init() {
+  bindEvents();
+  renderFilters();
+  try {
+    config = await fetch('/api/config').then(r => r.ok ? r.json() : {});
+  } catch (err) {
+    config = {};
+  }
+  await reloadCustomers();
+}
+
+function bindEvents() {
+  document.getElementById('search-input').addEventListener('input', (event) => {
+    const value = event.target.value.trim();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      searchKeyword = value;
+      reloadCustomers();
+    }, 300);
+  });
+
+  document.getElementById('drawer-mask').addEventListener('click', closeDrawer);
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+
+  document.getElementById('note-input').addEventListener('input', (event) => {
+    if (!activeCustomerName) return;
+    const customerName = activeCustomerName;
+    const value = event.target.value;
+    clearTimeout(noteSaveTimer);
+    noteSaveTimer = setTimeout(() => {
+      updateMeta(customerName, { note: value });
+      renderCards();
+    }, 120);
+  });
+
+  document.getElementById('tag-input').addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    const value = event.target.value.trim();
+    if (!value || !activeCustomerName) return;
+    addTag(activeCustomerName, value);
+    event.target.value = '';
+  });
+
+  document.getElementById('jump-chat-btn').addEventListener('click', () => {
+    if (!activeCustomerName) return;
+    jumpToChat(activeCustomerName);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeDrawer();
+  });
+
+  document.getElementById('grid-wrap').addEventListener('scroll', handleGridScroll);
+}
+
+async function reloadCustomers() {
+  currentOffset = 0;
+  totalCustomers = 0;
+  customers = [];
+  setLoadingState();
+  try {
+    const data = await fetchCustomersPage(searchKeyword, 0);
+    customers = data.page;
+    totalCustomers = data.total;
+    currentOffset = customers.length;
+    applyFilters();
+  } catch (err) {
+    renderErrorState();
+  }
+}
+
+async function fetchCustomersPage(search, offset) {
+  const url = `/api/customers?limit=${PAGE_SIZE}&offset=${offset}${search ? `&search=${encodeURIComponent(search)}` : ''}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('load failed');
+  const data = await res.json();
+  return {
+    page: (data.customers || data || []).map(normalizeCustomer),
+    total: typeof data.total === 'number' ? data.total : 0
+  };
+}
+
+async function loadMoreCustomers() {
+  if (loadingMore || currentOffset >= totalCustomers) return;
+  loadingMore = true;
+  renderSummary();
+  renderCards();
+  try {
+    const data = await fetchCustomersPage(searchKeyword, currentOffset);
+    customers = customers.concat(data.page);
+    totalCustomers = data.total || totalCustomers;
+    currentOffset = customers.length;
+    loadingMore = false;
+    applyFilters();
+  } catch (err) {
+    loadingMore = false;
+    return;
+  }
+}
+
+function handleGridScroll(event) {
+  const el = event.currentTarget;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 180) {
+    loadMoreCustomers();
+  }
+}
+
+function normalizeCustomer(raw) {
+  const source = inferSource(raw);
+  return {
+    id: raw.id || raw.name,
+    name: raw.name || '未命名客户',
+    source,
+    msgCount: raw.msgCount ?? raw.messageCount ?? 0,
+    lastMsg: raw.lastMsg ?? raw.lastMessage ?? '',
+    lastTime: raw.lastTime || '',
+    isHighIntent: Boolean(raw.isHighIntent ?? raw.highIntent),
+    account: raw.account || ''
+  };
+}
+
+function inferSource(customer) {
+  if (customer.source === 'main' || customer.source === 'side') return customer.source;
+  const label = config.accountLabels?.[customer.account];
+  if (label === '主') return 'main';
+  if (label === '副') return 'side';
+  if (customer.account === 'main' || customer.account === 'side') return customer.account;
+  return 'side';
+}
+
+function applyFilters() {
+  filteredCustomers = customers.filter((customer) => {
+    if (activeGroup === 'main' && customer.source !== 'main') return false;
+    if (activeGroup === 'side' && customer.source !== 'side') return false;
+    if (activeGroup === 'high' && !customer.isHighIntent) return false;
+    if (activeTag) {
+      const tags = getCustomerMeta(customer.name).tags;
+      if (!tags.includes(activeTag)) return false;
+    }
+    return true;
+  });
+
+  renderFilters();
+  renderSummary();
+  renderCards();
+  syncDrawerState();
+}
+
+function renderFilters() {
+  const groupRoot = document.getElementById('group-filters');
+  groupRoot.innerHTML = SOURCE_GROUPS.map((group) => {
+    const count = countByGroup(group.key);
+    return `
+      <button class="filter-btn ${activeGroup === group.key ? 'active' : ''}" type="button" data-group="${group.key}">
+        <span class="filter-name">${group.label}</span>
+        <span class="filter-count">${count}</span>
+      </button>`;
+  }).join('');
+  groupRoot.querySelectorAll('.filter-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      activeGroup = button.dataset.group;
+      applyFilters();
+    });
+  });
+
+  const tags = getAllTags();
+  const tagRoot = document.getElementById('tag-filters');
+  if (!tags.length) {
+    tagRoot.innerHTML = '<div class="tag-empty">还没有标签。先在右侧详情里给客户打几个标签。</div>';
+    return;
+  }
+
+  if (activeTag && !tags.some(tag => tag.name === activeTag)) activeTag = '';
+
+  tagRoot.innerHTML = [
+    `
+      <button class="tag-filter ${!activeTag ? 'active' : ''}" type="button" data-tag="">
+        <span class="tag-filter-name">全部标签</span>
+        <span class="tag-filter-count">${tags.reduce((sum, item) => sum + item.count, 0)}</span>
+      </button>
+    `,
+    ...tags.map((tag) => `
+      <button class="tag-filter ${activeTag === tag.name ? 'active' : ''}" type="button" data-tag="${escapeAttr(tag.name)}">
+        <span class="tag-filter-name">${escHtml(tag.name)}</span>
+        <span class="tag-filter-count">${tag.count}</span>
+      </button>
+    `)
+  ].join('');
+
+  tagRoot.querySelectorAll('.tag-filter').forEach((button) => {
+    button.addEventListener('click', () => {
+      activeTag = button.dataset.tag || '';
+      applyFilters();
+    });
+  });
+}
+
+function renderSummary() {
+  const total = totalCustomers || customers.length;
+  const loaded = customers.length;
+  const visible = filteredCustomers.length;
+  const highIntentCount = customers.filter(item => item.isHighIntent).length;
+  const parts = [`当前显示 ${visible} 位，已加载 ${loaded} / ${total}`];
+  if (searchKeyword) parts.push(`搜索词：${searchKeyword}`);
+  if (activeTag) parts.push(`标签：${activeTag}`);
+  if (activeGroup === 'high') parts.push('仅看高意向');
+  else if (activeGroup === 'main') parts.push('仅看主号');
+  else if (activeGroup === 'side') parts.push('仅看副号');
+  if (loaded < total) parts.push('向下滚动继续加载');
+
+  document.getElementById('results-summary').textContent = parts.join(' · ');
+  document.getElementById('total-badge').textContent = `已加载 ${loaded} / ${total}`;
+  document.getElementById('intent-badge').textContent = `已加载 ${highIntentCount} 位高意向`;
+}
+
+function renderCards() {
+  const root = document.getElementById('grid-wrap');
+  if (!filteredCustomers.length) {
+    root.innerHTML = renderEmptyState();
+    const clearButton = document.getElementById('clear-search-btn');
+    if (clearButton) {
+      clearButton.addEventListener('click', () => {
+        searchKeyword = '';
+        activeTag = '';
+        activeGroup = 'all';
+        document.getElementById('search-input').value = '';
+        reloadCustomers();
+      });
+    }
+    return;
+  }
+
+  root.innerHTML = `
+    <div id="cards-grid">${filteredCustomers.map(customerCardHTML).join('')}</div>
+    ${renderLoadMoreHint()}
+  `;
+  root.querySelectorAll('.contact-card').forEach((card) => {
+    card.addEventListener('click', () => openDrawer(card.dataset.name));
+  });
+}
+
+function customerCardHTML(customer) {
+  const meta = getCustomerMeta(customer.name);
+  const note = meta.note.trim();
+  const tags = meta.tags;
+  const noteSummary = note || '还没有备注，点击卡片添加跟进信息。';
+  const source = customer.source;
+  const sourceLabel = source === 'main' ? '主号' : '副号';
+  const highIntentTag = customer.isHighIntent ? '<span class="tag-chip gold">高意向</span>' : '';
+  const visibleTags = tags.slice(0, 2).map(tag => `<span class="tag-chip">${escHtml(tag)}</span>`).join('');
+  const extraTag = tags.length > 2 ? `<span class="tag-chip">+${tags.length - 2}</span>` : '';
+  const lastMessage = customer.lastMsg ? escHtml(customer.lastMsg) : '暂无消息记录';
+  const activeClass = customer.name === activeCustomerName ? 'active' : '';
+  const highIntentClass = customer.isHighIntent ? 'high-intent' : '';
+
+  return `
+    <article class="contact-card ${activeClass} ${highIntentClass}" data-name="${escapeAttr(customer.name)}">
+      <div class="card-top">
+        <div class="identity">
+          <div class="avatar" style="background:${avatarColor(customer.name)}">${escHtml(initialChar(customer.name))}</div>
+          <div class="identity-main">
+            <div class="name-row">
+              <div class="contact-name">${escHtml(customer.name)}</div>
+              <span class="source-badge ${source}">${sourceLabel}</span>
+            </div>
+            <div class="meta-line">
+              <span>${formatTime(customer.lastTime) || '暂无互动'}</span>
+              <span>${customer.msgCount} 条消息</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-note ${note ? '' : 'empty'}">${escHtml(noteSummary)}</div>
+
+      <div class="card-tags">
+        ${highIntentTag}
+        ${visibleTags}
+        ${extraTag}
+      </div>
+
+      <div class="card-footer">
+        <div class="last-message">${lastMessage}</div>
+        <div class="message-count">查看详情</div>
+      </div>
+    </article>
+  `;
+}
+
+function renderEmptyState() {
+  return `
+    <div class="state-panel">
+      <div class="state-card">
+        <div class="state-icon">📭</div>
+        <div class="state-title">没找到匹配的客户</div>
+        <div class="state-text">试试换个关键词，或者清空搜索和筛选条件。</div>
+        <button class="state-action" id="clear-search-btn" type="button">清空搜索</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderLoadMoreHint() {
+  if (!customers.length) return '';
+  if (loadingMore) {
+    return `
+      <div class="state-panel" style="min-height:auto;padding:18px 24px 6px">
+        <div class="state-text" style="margin-bottom:0">正在加载更多客户…</div>
+      </div>
+    `;
+  }
+  if (customers.length < totalCustomers) {
+    return `
+      <div class="state-panel" style="min-height:auto;padding:18px 24px 6px">
+        <div class="state-text" style="margin-bottom:0">已加载 ${customers.length} / ${totalCustomers}，继续下滑查看更多</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="state-panel" style="min-height:auto;padding:18px 24px 6px">
+      <div class="state-text" style="margin-bottom:0">已全部加载完成</div>
+    </div>
+  `;
+}
+
+function renderErrorState() {
+  document.getElementById('results-summary').textContent = '加载失败，请刷新';
+  document.getElementById('grid-wrap').innerHTML = `
+    <div class="state-panel">
+      <div class="state-card">
+        <div class="state-icon">⚠</div>
+        <div class="state-title">加载失败，请刷新</div>
+        <div class="state-text">接口没有返回可用数据，稍后重试。</div>
+      </div>
+    </div>
+  `;
+}
+
+function setLoadingState() {
+  document.getElementById('results-summary').textContent = '正在加载通讯录…';
+  document.getElementById('grid-wrap').innerHTML = `
+    <div class="state-panel">
+      <div class="state-card">
+        <div class="state-icon">⌛</div>
+        <div class="state-title">正在加载</div>
+        <div class="state-text">通讯录数据读取中…</div>
+      </div>
+    </div>
+  `;
+}
+
+function openDrawer(customerName) {
+  activeCustomerName = customerName;
+  const customer = customers.find(item => item.name === customerName);
+  if (!customer) return;
+
+  const meta = getCustomerMeta(customerName);
+  const sourceLabel = customer.source === 'main' ? '主号' : '副号';
+  const sourceEl = document.getElementById('drawer-source');
+  sourceEl.textContent = sourceLabel;
+  sourceEl.className = `source-badge ${customer.source}`;
+
+  document.getElementById('drawer-name').textContent = customer.name;
+  document.getElementById('drawer-meta').innerHTML = [
+    `<span>${customer.isHighIntent ? '高意向客户' : '普通客户'}</span>`,
+    `<span>${formatTime(customer.lastTime) || '暂无最近互动'}</span>`,
+    `<span>${customer.msgCount} 条消息</span>`
+  ].join('<span>·</span>');
+
+  document.getElementById('stat-msg-count').textContent = customer.msgCount;
+  document.getElementById('stat-last-time').textContent = formatTime(customer.lastTime) || '-';
+  const intentEl = document.getElementById('stat-intent');
+  intentEl.textContent = customer.isHighIntent ? '高意向' : '普通';
+  intentEl.className = `stat-value ${customer.isHighIntent ? 'gold' : ''}`;
+  document.getElementById('drawer-last-message').textContent = customer.lastMsg || '暂无消息';
+  document.getElementById('note-input').value = meta.note;
+  document.getElementById('tag-input').value = '';
+
+  renderDrawerTags(meta.tags);
+  document.getElementById('drawer-mask').classList.add('open');
+  document.getElementById('detail-drawer').classList.add('open');
+  document.getElementById('detail-drawer').setAttribute('aria-hidden', 'false');
+  renderCards();
+}
+
+function syncDrawerState() {
+  if (!activeCustomerName) return;
+  const exists = customers.some(item => item.name === activeCustomerName);
+  if (!exists) {
+    closeDrawer();
+    return;
+  }
+
+  const customer = customers.find(item => item.name === activeCustomerName);
+  if (!customer) return;
+  const meta = getCustomerMeta(activeCustomerName);
+  document.getElementById('note-input').value = meta.note;
+  renderDrawerTags(meta.tags);
+}
+
+function closeDrawer() {
+  activeCustomerName = '';
+  document.getElementById('drawer-mask').classList.remove('open');
+  document.getElementById('detail-drawer').classList.remove('open');
+  document.getElementById('detail-drawer').setAttribute('aria-hidden', 'true');
+  renderCards();
+}
+
+function renderDrawerTags(tags) {
+  const root = document.getElementById('drawer-tags');
+  if (!tags.length) {
+    root.innerHTML = '<div class="hint-text" style="margin-top:0">还没有标签。</div>';
+    return;
+  }
+  root.innerHTML = tags.map((tag) => `
+    <button class="drawer-tag" type="button" data-tag="${escapeAttr(tag)}">
+      <span>${escHtml(tag)}</span>
+      <span class="tag-remove">×</span>
+    </button>
+  `).join('');
+  root.querySelectorAll('.drawer-tag').forEach((button) => {
+    button.addEventListener('click', () => removeTag(activeCustomerName, button.dataset.tag));
+  });
+}
+
+function addTag(customerName, tag) {
+  const meta = getCustomerMeta(customerName);
+  if (meta.tags.includes(tag)) return;
+  updateMeta(customerName, { tags: [...meta.tags, tag] });
+  applyFilters();
+  if (activeCustomerName === customerName) openDrawer(customerName);
+}
+
+function removeTag(customerName, tag) {
+  const meta = getCustomerMeta(customerName);
+  updateMeta(customerName, { tags: meta.tags.filter(item => item !== tag) });
+  if (activeTag === tag && !getAllTags().some(item => item.name === tag)) activeTag = '';
+  applyFilters();
+  if (activeCustomerName === customerName) openDrawer(customerName);
+}
+
+function updateMeta(customerName, patch) {
+  const current = getCustomerMeta(customerName);
+  metaMap[customerName] = {
+    note: typeof patch.note === 'string' ? patch.note : current.note,
+    tags: Array.isArray(patch.tags) ? dedupeTags(patch.tags) : current.tags
+  };
+  if (!metaMap[customerName].note.trim() && metaMap[customerName].tags.length === 0) {
+    delete metaMap[customerName];
+  }
+  saveMetaMap(metaMap);
+}
+
+function getCustomerMeta(customerName) {
+  const entry = metaMap[customerName];
+  return {
+    note: entry?.note || '',
+    tags: Array.isArray(entry?.tags) ? dedupeTags(entry.tags) : []
+  };
+}
+
+function getAllTags() {
+  const counter = new Map();
+  Object.values(metaMap).forEach((entry) => {
+    dedupeTags(entry.tags || []).forEach((tag) => {
+      counter.set(tag, (counter.get(tag) || 0) + 1);
+    });
+  });
+  return Array.from(counter.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+}
+
+function countByGroup(group) {
+  if (group === 'all') return customers.length;
+  if (group === 'main') return customers.filter(item => item.source === 'main').length;
+  if (group === 'side') return customers.filter(item => item.source === 'side').length;
+  if (group === 'high') return customers.filter(item => item.isHighIntent).length;
+  return 0;
+}
+
+function jumpToChat(customerName) {
+  try {
+    window.parent.postMessage({ action: 'switchTab', tab: 'chat', customer: customerName }, '*');
+  } catch (err) {}
+
+  try {
+    const parentWin = window.parent;
+    const parentDoc = parentWin.document;
+    const frame = parentDoc.getElementById('page-frame');
+    const chatBtn = Array.from(parentDoc.querySelectorAll('.tab-btn')).find(btn => btn.dataset.page === 'pages/chat.html');
+    if (!frame) return;
+
+    parentWin.__ghActivateChatCustomer = async function(targetName) {
+      const frameEl = parentDoc.getElementById('page-frame');
+      if (!frameEl) return;
+
+      const pickCustomer = async () => {
+        const chatWin = frameEl.contentWindow;
+        for (let i = 0; i < 30; i += 1) {
+          if (chatWin && typeof chatWin.loadCustomers === 'function' && typeof chatWin.selectCustomer === 'function') break;
+          await new Promise(resolve => parentWin.setTimeout(resolve, 120));
+        }
+        if (!chatWin || typeof chatWin.loadCustomers !== 'function' || typeof chatWin.selectCustomer !== 'function') return;
+
+        const chatSearch = chatWin.document?.getElementById('search-input');
+        if (chatSearch) chatSearch.value = targetName;
+        await chatWin.loadCustomers(targetName);
+        const match = (chatWin.customers || []).find(item => item.name === targetName) || (chatWin.customers || [])[0];
+        if (match) await chatWin.selectCustomer(match.id);
+      };
+
+      if ((frameEl.getAttribute('src') || '').includes('pages/chat.html')) {
+        await pickCustomer();
+        return;
+      }
+
+      frameEl.addEventListener('load', () => {
+        parentWin.setTimeout(() => { pickCustomer(); }, 120);
+      }, { once: true });
+      frameEl.src = 'pages/chat.html';
+    };
+
+    if (chatBtn) {
+      parentDoc.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      chatBtn.classList.add('active');
+    }
+
+    parentWin.__ghActivateChatCustomer(customerName);
+  } catch (err) {}
+}
+
+function loadMetaMap() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(META_STORAGE_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function saveMetaMap(value) {
+  localStorage.setItem(META_STORAGE_KEY, JSON.stringify(value));
+}
+
+function dedupeTags(tags) {
+  return Array.from(new Set((tags || []).map(tag => String(tag).trim()).filter(Boolean)));
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(str) {
+  return escHtml(str);
+}
+
+function initialChar(name) {
+  return String(name || '?').trim().charAt(0).toUpperCase() || '?';
+}
+
+function avatarColor(name) {
+  const text = String(name || '');
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function formatTime(timeStr) {
+  if (!timeStr) return '';
+  const date = new Date(String(timeStr).replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return String(timeStr).slice(0, 10);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  }
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${date.getMonth() + 1}月${date.getDate()}日`;
+  }
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+init();
+</script>
 </body>
 </html>
