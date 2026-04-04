@@ -837,10 +837,44 @@ async function runTacticsV1() {
   addAiMsg('user', '操作', userContent);
   saveAiMsg('user', '操作', userContent);
   const bubbleEl = addAiMsg('assistant', '⚡ 生成中…');
+
+  // 从产品库取产品卡（同 runTactics）
+  let productCard = null;
+  try {
+    const prods = await apiFetch('/api/products').then(r => r.json());
+    const p = prods.find(x => x.name === currentProduct || (currentProduct && x.name.includes(currentProduct)));
+    if (p) {
+      productCard = [
+        `【产品卡：${p.name}】`,
+        p.price ? `价格：¥${p.price}${p.priceUnit || ''}` : '',
+        p.value ? `核心价值：${p.value}` : '',
+        p.fit?.length ? `适合谁：${p.fit.join('、')}` : '',
+        p.perks?.length ? `权益：${p.perks.join('；')}` : '',
+        p.points?.length ? `核心卖点：\n${p.points.map((pt, i) => `${i+1}. ${pt.text}（${pt.scene}）`).join('\n')}` : '',
+        p.worries?.length ? `常见顾虑：\n${p.worries.map(w => '· ' + w).join('\n')}` : ''
+      ].filter(Boolean).join('\n');
+    }
+  } catch(e) {}
+
+  // 从话术库取匹配话术（同 runTactics）
+  let sampleScripts = [];
+  try {
+    const stageMap = { '建立链接': '建立连接', '同步信息': '建立连接', '挖掘需求': '挖掘需求', '解决顾虑': '解决顾虑', '达成成交': '最后成交' };
+    const cfg = await apiFetch('/api/config').then(r=>r.json()).catch(()=>({progressStages:[]}));
+    const stageName = cfg.progressStages?.[currentStage] || '';
+    const mappedStage = stageMap[stageName] || '';
+    const scriptData = JSON.parse(localStorage.getItem('gh_scripts_v5') || '{"scripts":[]}');
+    sampleScripts = (scriptData.scripts || [])
+      .filter(s => (!currentProduct || s.product === currentProduct) && (!mappedStage || s.stage === mappedStage))
+      .sort((a, b) => (b.rate || 0) - (a.rate || 0))
+      .slice(0, 5)
+      .map(s => s.content || s.label);
+  } catch(e) {}
+
   try {
     const res = await apiFetch('/api/ai/tactics-v1', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: messages.slice(-10), customerName: activeCustomer.name, product: currentProduct, progressStage: currentStage })
+      body: JSON.stringify({ messages: messages.slice(-20), customerName: activeCustomer.name, product: currentProduct, progressStage: currentStage, productCard, sampleScripts })
     });
     const fullText = await streamIntoBubble(res, bubbleEl);
     bubbleEl.previousSibling.textContent = '⚡ 话术';
