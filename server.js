@@ -104,6 +104,84 @@ function loadConfig() {
   return applyEnvOverrides(readConfigFile());
 }
 
+// ── 知识库检索 ────────────────────────────────────────────────────────────────
+const KB_PATH = path.join(__dirname, 'data', 'knowledge_base.json');
+let _kb = null;
+
+function loadKnowledgeBase() {
+  if (_kb) return _kb;
+  if (!fs.existsSync(KB_PATH)) return null;
+  try {
+    _kb = JSON.parse(fs.readFileSync(KB_PATH, 'utf8'));
+    return _kb;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 阶段关键词映射（用于语料相关性打分）
+const STAGE_KEYWORDS = {
+  '建立链接': ['破冰', '信任', '初次', '链接', '了解', '打招呼', '认识'],
+  '同步信息': ['情况', '确认', '了解', '背景', '信息'],
+  '挖掘需求': ['痛点', '需求', '为什么', '挖', '封闭', '选择', '问题', '烦恼'],
+  '解决顾虑': ['价格', '贵', '时间', '效果', '顾虑', '异议', '担心', '质疑', '考虑', '犹豫', '风险'],
+  '达成成交': ['临门', '成交', '付款', '紧迫', '最后', '决定', '下单', '付钱', '转账'],
+};
+
+// 从最近聊天里提取关键词（滑动 n-gram，保证词语完整性）
+function extractChatKeywords(messages, mySenderName) {
+  const STOP = new Set(['我', '你', '他', '她', '的', '了', '是', '在', '有', '不', '也', '都', '和', '与', '但', '就', '把', '被', '让', '给', '对', '会', '能', '要', '想', '说', '看', '到', '很', '这', '那', '可以', '可能', '没有', '因为', '所以', '如果', '虽然', '但是', '什么', '怎么', '一个', '还是', '一下', '一点', '一些', '感觉', '其实', '然后', '这个', '那个']);
+  // 只取客户消息（排除自己发的）
+  const recent = (messages || []).slice(-10)
+    .filter(m => m.sender !== mySenderName)
+    .map(m => m.content || '').join('');
+  // 只保留中文字符，滑动 bigram/trigram/4-gram 生成候选词
+  const chars = recent.replace(/[^\u4e00-\u9fa5]/g, '');
+  const freq = {};
+  for (let i = 0; i < chars.length; i++) {
+    for (let n = 2; n <= 4; n++) {
+      if (i + n <= chars.length) {
+        const w = chars.slice(i, i + n);
+        if (!STOP.has(w)) freq[w] = (freq[w] || 0) + 1;
+      }
+    }
+  }
+  return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([w]) => w);
+}
+
+function searchKnowledgeBase(stageName, messages, mySenderName, topN = 5) {
+  const kb = loadKnowledgeBase();
+  if (!kb || !kb.chunks || kb.chunks.length === 0) return [];
+
+  const stageKws = STAGE_KEYWORDS[stageName] || [];
+  const chatKws = extractChatKeywords(messages, mySenderName);
+
+  const scored = kb.chunks.map(chunk => {
+    let score = 0;
+    const text = chunk.content;
+    // 阶段关键词匹配（权重 2）
+    stageKws.forEach(kw => { if (text.includes(kw)) score += 2; });
+    // 聊天关键词匹配（权重 1）
+    chatKws.forEach(kw => { if (text.includes(kw)) score += 1; });
+    // 金句标签加分
+    if (chunk.tags.includes('💰/金句')) score += 1;
+    return { chunk, score };
+  });
+
+  return scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN)
+    .map(s => s.chunk.content);
+}
+
+function buildKbSection(stageName, messages, mySenderName) {
+  const results = searchKnowledgeBase(stageName, messages, mySenderName);
+  if (results.length === 0) return '';
+  const lines = results.map((r, i) => `${i + 1}. ${r.replace(/\n/g, ' ').slice(0, 200)}`).join('\n\n');
+  return `\n\n--- 参考话术语料（这是真实销售中说过的原话，照这个腔调来，不要改写）---\n${lines}`;
+}
+
 function loadEditableConfig() {
   return readConfigFile();
 }
@@ -463,10 +541,11 @@ app.post('/api/ai/tactics', async (req, res) => {
   const scriptsSection = (sampleScripts && sampleScripts.length)
     ? `\n\n--- 参考话术（来自话术库，仅供风格参考，不要直接照抄）---\n${sampleScripts.map((s, i) => `${i+1}. ${s}`).join('\n\n')}`
     : '';
+  const kbSection = buildKbSection(curr, messages, cfg.mySenderName);
 
   const system = `你是顶级销售教练，专注知识付费产品。
 客户状态：${phase || '跟进'}客户，${contactDesc}。${phaseNote}
-当前：客户"${customerName}"，产品"${product || '未指定'}"，阶段"${curr}"，目标推进到"${next}"。${productSection}${scriptsSection}
+当前：客户"${customerName}"，产品"${product || '未指定'}"，阶段"${curr}"，目标推进到"${next}"。${productSection}${scriptsSection}${kbSection}
 
 输出格式（严格按此）：
 【意图分析】
@@ -500,6 +579,7 @@ app.post('/api/ai/tactics-v1', async (req, res) => {
   const scriptsSection = (sampleScripts && sampleScripts.length)
     ? `\n\n---话术库（仅供风格参考，不要照抄）---\n${sampleScripts.map((s, i) => `${i+1}. ${s}`).join('\n\n')}`
     : '';
+  const kbSection = buildKbSection(curr, messages, cfg.mySenderName);
 
   const system = `你是「金币猎人」销售助手，专门帮助销售人员应对客户对话、挑选话术、优化表达。
 
@@ -537,7 +617,7 @@ app.post('/api/ai/tactics-v1', async (req, res) => {
 - 残缺效应：永远留一个底牌让对方主动来找你
 - 成交梯度钩子：低价成交后告知可补差价升级，埋下高价单伏笔
 - 可聊不交付：成交前只描述结果，不交付具体方案
-${productSection}${scriptsSection}
+${productSection}${scriptsSection}${kbSection}
 
 ## 输出格式（严格按此）
 📍 当前阶段：**阶段名（X/5）→ 对当前实际进展的精准判断**
