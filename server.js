@@ -224,19 +224,49 @@ async function streamFromOpenAI(baseUrl, apiKey, model, messages, res) {
     res.end(); return;
   }
 
+  const decoder = new TextDecoder();
+  let buffer = '';
+
   for await (const chunk of response.body) {
-    const lines = chunk.toString().split('\n').filter(l => l.startsWith('data: '));
-    for (const line of lines) {
-      const data = line.slice(6);
-      if (data === '[DONE]') { res.write('data: [DONE]\n\n'); continue; }
-      try {
-        const parsed = JSON.parse(data);
-        const delta = parsed.choices?.[0]?.delta?.content;
-        if (delta) res.write(`data: ${JSON.stringify({ text: delta })}\n\n`);
-      } catch { /* skip */ }
+    buffer += decoder.decode(chunk, { stream: true });
+    const events = buffer.split('\n\n');
+    buffer = events.pop() || '';
+
+    for (const event of events) {
+      const dataLines = event
+        .split('\n')
+        .filter(line => line.startsWith('data: '))
+        .map(line => line.slice(6));
+
+      for (const data of dataLines) {
+        if (data === '[DONE]') {
+          res.write('data: [DONE]\n\n');
+          continue;
+        }
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta?.content;
+          if (delta) res.write(`data: ${JSON.stringify({ text: delta })}\n\n`);
+        } catch { /* skip partial/non-json event */ }
+      }
     }
   }
   res.end();
+}
+
+function writeStreamError(res, error) {
+  const message = error?.message || String(error);
+  try {
+    if (!res.headersSent) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+    }
+    res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
+    res.write('data: [DONE]\n\n');
+  } catch { /* ignore secondary write errors */ }
+  try { res.end(); } catch { /* ignore */ }
 }
 
 async function streamFromAnthropic(apiKey, model, messages, res, baseUrl) {
@@ -263,18 +293,30 @@ async function streamFromAnthropic(apiKey, model, messages, res, baseUrl) {
     res.end(); return;
   }
 
+  const decoder = new TextDecoder();
+  let buffer = '';
+
   for await (const chunk of response.body) {
-    const lines = chunk.toString().split('\n').filter(l => l.startsWith('data: '));
-    for (const line of lines) {
-      const data = line.slice(6);
-      try {
-        const parsed = JSON.parse(data);
-        if (parsed.type === 'content_block_delta') {
-          res.write(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`);
-        } else if (parsed.type === 'message_stop') {
-          res.write('data: [DONE]\n\n');
-        }
-      } catch { /* skip */ }
+    buffer += decoder.decode(chunk, { stream: true });
+    const events = buffer.split('\n\n');
+    buffer = events.pop() || '';
+
+    for (const event of events) {
+      const dataLines = event
+        .split('\n')
+        .filter(line => line.startsWith('data: '))
+        .map(line => line.slice(6));
+
+      for (const data of dataLines) {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            res.write(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`);
+          } else if (parsed.type === 'message_stop') {
+            res.write('data: [DONE]\n\n');
+          }
+        } catch { /* skip partial/non-json event */ }
+      }
     }
   }
   res.end();
@@ -293,10 +335,15 @@ async function callAI(systemPrompt, userContent, res) {
     { role: 'user', content: userContent }
   ];
 
-  if (modelCfg.provider === 'anthropic') {
-    await streamFromAnthropic(modelCfg.apiKey, modelCfg.id, msgs, res, modelCfg.baseUrl);
-  } else {
-    await streamFromOpenAI(modelCfg.baseUrl, modelCfg.apiKey, modelCfg.id, msgs, res);
+  try {
+    if (modelCfg.provider === 'anthropic') {
+      await streamFromAnthropic(modelCfg.apiKey, modelCfg.id, msgs, res, modelCfg.baseUrl);
+    } else {
+      await streamFromOpenAI(modelCfg.baseUrl, modelCfg.apiKey, modelCfg.id, msgs, res);
+    }
+  } catch (error) {
+    console.error('[ai] callAI failed:', error);
+    writeStreamError(res, error);
   }
 }
 
@@ -308,10 +355,15 @@ async function callAIWithMessages(messages, res) {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
-  if (modelCfg.provider === 'anthropic') {
-    await streamFromAnthropic(modelCfg.apiKey, modelCfg.id, messages, res, modelCfg.baseUrl);
-  } else {
-    await streamFromOpenAI(modelCfg.baseUrl, modelCfg.apiKey, modelCfg.id, messages, res);
+  try {
+    if (modelCfg.provider === 'anthropic') {
+      await streamFromAnthropic(modelCfg.apiKey, modelCfg.id, messages, res, modelCfg.baseUrl);
+    } else {
+      await streamFromOpenAI(modelCfg.baseUrl, modelCfg.apiKey, modelCfg.id, messages, res);
+    }
+  } catch (error) {
+    console.error('[ai] callAIWithMessages failed:', error);
+    writeStreamError(res, error);
   }
 }
 
