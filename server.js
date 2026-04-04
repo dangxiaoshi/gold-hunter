@@ -431,6 +431,33 @@ app.post('/api/ai/tactics', async (req, res) => {
   await callAI(system, `最近聊天记录：\n\n${recentMsgs}`, res);
 });
 
+// 🏹 出击 v1 style: 短输入，直接输出意图+2-3条话术，无 A/B/C 大段分析
+app.post('/api/ai/tactics-v1', async (req, res) => {
+  const { messages, customerName, product, progressStage } = req.body;
+  const cfg = loadConfig();
+  const stages = cfg.progressStages;
+  const curr = stages[progressStage] || stages[0];
+
+  // 只取最近 10 条，保持上下文精简
+  const recentMsgs = (messages || []).slice(-10)
+    .map(m => `[${m.sender === cfg.mySenderName ? '我' : customerName}] ${m.content}`)
+    .join('\n');
+
+  const system = `你是顶级销售教练，输出极简话术。
+客户："${customerName}"，产品："${product || '未指定'}"，阶段："${curr}"。
+
+输出格式（严格按此，不超过这几行）：
+【意图】一句话说清客户现在的心理状态。
+
+【话术1】可直接复制发送的一句话
+【话术2】可直接复制发送的一句话
+【话术3】（可选）可直接复制发送的一句话
+
+要求：口语化、简短、可直接发送，不要分析报告，不要 A/B/C 大段。`;
+
+  await callAI(system, `最近聊天（最多10条）：\n\n${recentMsgs}`, res);
+});
+
 // AI multi-turn chat
 app.post('/api/ai/chat', async (req, res) => {
   const { history, customerName, recentMessages } = req.body;
