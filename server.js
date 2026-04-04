@@ -492,8 +492,8 @@ app.post('/api/ai/tactics-v1', async (req, res) => {
   const curr = stages[progressStage] || stages[0];
   const next = stages[Math.min((progressStage || 0) + 1, stages.length - 1)];
 
-  const recentMsgs = (messages || []).slice(-20)
-    .map(m => `[${m.sender === cfg.mySenderName ? '我' : customerName}] ${m.content}`)
+  const allMsgs = (messages || [])
+    .map(m => `[${m.time || ''}] [${m.sender === cfg.mySenderName ? '我' : customerName}] ${m.content}`)
     .join('\n');
 
   const productSection = productCard ? `\n\n---产品资料---\n${productCard}` : '';
@@ -564,7 +564,7 @@ ${productSection}${scriptsSection}
 ⚠️ 下一句必须说的话（直接复制粘贴发）：
 > （一句临门一脚，承接上面所有话术选择，消除决策负担）`;
 
-  await callAI(system, `客户"${customerName}"的最近聊天记录：\n\n${recentMsgs}`, res);
+  await callAI(system, `客户"${customerName}"的完整聊天记录（共${(messages||[]).length}条，含日期）：\n\n${allMsgs}`, res);
 });
 
 // AI multi-turn chat

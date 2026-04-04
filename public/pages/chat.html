@@ -874,7 +874,7 @@ async function runTacticsV1() {
   try {
     const res = await apiFetch('/api/ai/tactics-v1', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: messages.slice(-20), customerName: activeCustomer.name, product: currentProduct, progressStage: currentStage, productCard, sampleScripts })
+      body: JSON.stringify({ messages: messages, customerName: activeCustomer.name, product: currentProduct, progressStage: currentStage, productCard, sampleScripts })
     });
     const fullText = await streamIntoBubble(res, bubbleEl);
     bubbleEl.previousSibling.textContent = '⚡ 话术';
