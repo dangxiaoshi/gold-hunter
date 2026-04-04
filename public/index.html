@@ -113,7 +113,7 @@
 <div id="lock-screen">
   <div class="lock-box">
     <div class="lock-title">🏹 金币猎人 2.0</div>
-    <div class="lock-sub">私人工具 · 请输入密码</div>
+    <div class="lock-sub" id="lock-sub">私人工具 · 请输入密码</div>
     <input id="pwd-input" class="lock-input" type="password" placeholder="••••••••" autocomplete="off">
     <button class="lock-btn" id="pwd-btn">进入</button>
     <div class="lock-error" id="pwd-error"></div>
@@ -139,6 +139,7 @@
 <script>
   const SESSION_KEY = 'gh2_auth';
   const TOKEN_KEY = 'gh2_token';
+  const API_BASE_KEY = 'gh2_api_base';
 
   const lockScreen = document.getElementById('lock-screen');
   const app = document.getElementById('app');
@@ -146,6 +147,28 @@
   const pwdBtn = document.getElementById('pwd-btn');
   const pwdError = document.getElementById('pwd-error');
   const pageFrame = document.getElementById('page-frame');
+  const lockSub = document.getElementById('lock-sub');
+
+  function defaultApiBase() {
+    if (location.hostname === 'dangxiaoshi.github.io') return 'http://localhost:3737';
+    return location.origin;
+  }
+
+  function getApiBase() {
+    return localStorage.getItem(API_BASE_KEY) || defaultApiBase();
+  }
+
+  function apiUrl(path) {
+    return getApiBase().replace(/\/$/, '') + path;
+  }
+
+  if (!localStorage.getItem(API_BASE_KEY)) {
+    localStorage.setItem(API_BASE_KEY, defaultApiBase());
+  }
+
+  if (location.hostname === 'dangxiaoshi.github.io') {
+    lockSub.textContent = 'GitHub 页面会连接你本机的 3737 服务';
+  }
 
   function unlock(token) {
     localStorage.setItem(SESSION_KEY, '1');
@@ -165,7 +188,7 @@
 
   async function validateStoredSession(token) {
     try {
-      const r = await fetch('/api/config', {
+      const r = await fetch(apiUrl('/api/config'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return r.ok;
@@ -177,7 +200,7 @@
   async function tryUnlock() {
     pwdBtn.disabled = true;
     try {
-      const r = await fetch('/api/login', {
+      const r = await fetch(apiUrl('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pwdInput.value })
@@ -191,7 +214,9 @@
         pwdInput.focus();
       }
     } catch {
-      pwdError.textContent = '连接失败，请刷新重试';
+      pwdError.textContent = location.hostname === 'dangxiaoshi.github.io'
+        ? '连不上本机服务。先在电脑上启动金币猎人，再回来登录。'
+        : '连接失败，请刷新重试';
     } finally {
       pwdBtn.disabled = false;
     }

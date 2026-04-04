@@ -2,3 +2,5 @@ node_modules/
 .gstack/
 data/customers.json
 config.json
+.env.local
+.env

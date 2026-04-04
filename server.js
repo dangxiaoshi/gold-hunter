@@ -4,12 +4,35 @@ const path = require('path');
 const crypto = require('crypto');
 
 const app = express();
+const DEFAULT_PORT = 3737;
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost:3737',
+  'http://127.0.0.1:3737',
+  'https://dangxiaoshi.github.io'
+]);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const DB_PATH = path.join(__dirname, 'data', 'customers.json');
 const PRODUCTS_PATH = path.join(__dirname, 'data', 'products.json');
+
+function allowCors(req, res) {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
+  }
+}
+
+app.use((req, res, next) => {
+  allowCors(req, res);
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 // ── Session Token Auth ────────────────────────────────────────────────────────
 let sessionToken = null;
@@ -27,7 +50,7 @@ app.post('/api/login', (req, res) => {
 
 // Protect all /api/* except /api/login
 app.use('/api', (req, res, next) => {
-  if (req.path === '/login') return next();
+  if (req.path === '/login' || req.path === '/health') return next();
   const auth = req.headers['authorization'] || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token || token !== sessionToken) return res.status(401).json({ error: 'unauthorized' });
@@ -52,8 +75,37 @@ function saveDB(db) {
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
-function loadConfig() {
+function readConfigFile() {
   return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+}
+
+function modelEnvPrefix(id) {
+  return `GH2_MODEL_${String(id || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toUpperCase()}`;
+}
+
+function applyEnvOverrides(cfg) {
+  const next = JSON.parse(JSON.stringify(cfg || {}));
+  if (process.env.GH2_PASSWORD) next.password = process.env.GH2_PASSWORD;
+  if (process.env.GH2_ACTIVE_MODEL) next.activeModel = process.env.GH2_ACTIVE_MODEL;
+
+  next.models = (next.models || []).map(model => {
+    const prefix = modelEnvPrefix(model.id);
+    return {
+      ...model,
+      apiKey: process.env[`${prefix}_API_KEY`] || model.apiKey,
+      baseUrl: process.env[`${prefix}_BASE_URL`] || model.baseUrl
+    };
+  });
+
+  return next;
+}
+
+function loadConfig() {
+  return applyEnvOverrides(readConfigFile());
+}
+
+function loadEditableConfig() {
+  return readConfigFile();
 }
 function saveConfig(cfg) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
@@ -75,8 +127,9 @@ function makeId(account, name) {
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // Config
-app.get('/api/config', (req, res) => res.json(loadConfig()));
+app.get('/api/config', (req, res) => res.json(loadEditableConfig()));
 app.put('/api/config', (req, res) => { saveConfig(req.body); res.json({ ok: true }); });
+app.get('/api/health', (req, res) => res.json({ ok: true, port: PORT }));
 
 // ── Products ──────────────────────────────────────────────────────────────────
 app.get('/api/products', (req, res) => {
@@ -504,7 +557,7 @@ app.post('/api/config/test-model', async (req, res) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-const PORT = 3737;
+const PORT = Number(process.env.PORT) || DEFAULT_PORT;
 app.listen(PORT, () => {
   console.log(`\n🏹 金币猎人 运行中 → http://localhost:${PORT}\n`);
 });

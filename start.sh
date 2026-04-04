@@ -1,5 +1,10 @@
 #!/bin/bash
 cd "$(dirname "$0")"
+if [ -f .env.local ]; then
+  set -a
+  . ./.env.local
+  set +a
+fi
 echo "🏹 启动金币猎人..."
 node server.js &
 SERVER_PID=$!

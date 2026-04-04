@@ -237,10 +237,15 @@
 </div>
 <script>
 /* ── Auth helper ── */
+function resolveApiUrl(path) {
+  const base = localStorage.getItem('gh2_api_base') || location.origin;
+  return base.replace(/\/$/, '') + path;
+}
+
 function apiFetch(url, opts = {}) {
   const token = localStorage.getItem('gh2_token') || '';
   const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
-  return fetch(url, { ...opts, headers }).then(r => {
+  return fetch(resolveApiUrl(url), { ...opts, headers }).then(r => {
     if (r.status === 401) {
       localStorage.removeItem('gh2_auth');
       localStorage.removeItem('gh2_token');
@@ -274,16 +279,28 @@ function saveAiStateMap() {
 const aiStateMap = loadAiStateMap();
 
 /* ── Boot ── */
+function showInitError(message) {
+  document.getElementById('customer-list').innerHTML = `<div class="empty-list">${escHtml(message)}</div>`;
+  document.getElementById('mid-empty').innerHTML = `<span style="font-size:32px">⚠️</span>${escHtml(message)}`;
+}
+
 async function init() {
-  config = await apiFetch('/api/config').then(r => r.json());
-  setupDragHandles();
-  setupBattleBar();
-  setupInput();
-  setupAiInput();
-  setupSearch();
-  setupAddCustomer();
-  setupImport();
-  await loadCustomers();
+  try {
+    config = await apiFetch('/api/config').then(r => r.json());
+    setupDragHandles();
+    setupBattleBar();
+    setupInput();
+    setupAiInput();
+    setupSearch();
+    setupAddCustomer();
+    setupImport();
+    await loadCustomers();
+  } catch (e) {
+    const msg = e.message === 'unauthorized'
+      ? '登录已失效，请刷新后重新输入密码'
+      : `初始化失败：${e.message}`;
+    showInitError(msg);
+  }
 }
 
 /* ── Customer List ── */

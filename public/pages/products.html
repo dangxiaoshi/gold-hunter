@@ -358,10 +358,15 @@
 
 <script>
 /* ── Auth helper ── */
+function resolveApiUrl(path) {
+  const base = localStorage.getItem('gh2_api_base') || location.origin;
+  return base.replace(/\/$/, '') + path;
+}
+
 function apiFetch(url, opts = {}) {
   const token = localStorage.getItem('gh2_token') || '';
   const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
-  return fetch(url, { ...opts, headers }).then(r => {
+  return fetch(resolveApiUrl(url), { ...opts, headers }).then(r => {
     if (r.status === 401) {
       localStorage.removeItem('gh2_auth');
       localStorage.removeItem('gh2_token');
