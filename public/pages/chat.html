@@ -237,7 +237,12 @@ function apiFetch(url, opts = {}) {
   const token = localStorage.getItem('gh2_token') || '';
   const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
   return fetch(url, { ...opts, headers }).then(r => {
-    if (r.status === 401) { localStorage.clear(); location.reload(); }
+    if (r.status === 401) {
+      localStorage.removeItem('gh2_auth');
+      localStorage.removeItem('gh2_token');
+      try { window.parent.postMessage({ action: 'authExpired' }, '*'); } catch (err) {}
+      throw new Error('unauthorized');
+    }
     return r;
   });
 }
@@ -280,7 +285,7 @@ async function init() {
 async function loadCustomers(search = '') {
   currentOffset = 0;
   const url = `/api/customers?limit=${PAGE_SIZE}&offset=0${search ? `&search=${encodeURIComponent(search)}` : ''}`;
-  const data = await fetch(url).then(r => r.json());
+  const data = await apiFetch(url).then(r => r.json());
   customers = data.customers || data;
   totalCustomers = data.total || customers.length;
   renderCustomerList();
@@ -292,7 +297,7 @@ async function loadMoreCustomers() {
   currentOffset += PAGE_SIZE;
   const search = document.getElementById('search-input').value;
   const url = `/api/customers?limit=${PAGE_SIZE}&offset=${currentOffset}${search ? `&search=${encodeURIComponent(search)}` : ''}`;
-  const data = await fetch(url).then(r => r.json());
+  const data = await apiFetch(url).then(r => r.json());
   customers = [...customers, ...(data.customers || data)];
   renderCustomerList();
   loadingMore = false;
@@ -361,7 +366,7 @@ async function selectCustomer(id) {
   document.getElementById('emoji-trigger').textContent = activeCustomer.statusEmoji || '🔥';
   if (currentProduct) document.getElementById('product-select').value = currentProduct;
 
-  messages = await fetch(`/api/customers/${id}/messages`).then(r => r.json());
+  messages = await apiFetch(`/api/customers/${id}/messages`).then(r => r.json());
   // 加载之前粘贴的额外消息
   try {
     const extra = JSON.parse(localStorage.getItem(`gh_extra_msgs_${id}`) || '[]');
@@ -435,7 +440,7 @@ function setupBattleBar() {
   document.getElementById('product-select').addEventListener('change', async (e) => {
     currentProduct = e.target.value;
     if (activeCustomer) {
-      await fetch(`/api/customers/${activeCustomer.id}`, {
+      await apiFetch(`/api/customers/${activeCustomer.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activeProduct: currentProduct })
       });
@@ -466,7 +471,7 @@ function renderEmojiPicker() {
       document.getElementById('emoji-trigger').textContent = emoji;
       if (activeCustomer) {
         activeCustomer.statusEmoji = emoji;
-        await fetch(`/api/customers/${activeCustomer.id}`, {
+        await apiFetch(`/api/customers/${activeCustomer.id}`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ statusEmoji: emoji })
         });
@@ -517,7 +522,7 @@ async function setStage(stage) {
   updateProgressBar();
   if (activeCustomer) {
     activeCustomer.progressStage = stage;
-    await fetch(`/api/customers/${activeCustomer.id}`, {
+    await apiFetch(`/api/customers/${activeCustomer.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ progressStage: stage })
     });
@@ -928,7 +933,7 @@ window.addEventListener('message', async (e) => {
       let customer = customers.find(c => c.name === name);
       if (!customer) {
         // 没找到就去接口搜
-        const data = await fetch(`/api/customers?limit=1&search=${encodeURIComponent(name)}`).then(r => r.json());
+        const data = await apiFetch(`/api/customers?limit=1&search=${encodeURIComponent(name)}`).then(r => r.json());
         customer = (data.customers || data)[0];
         if (customer && !customers.find(c => c.id === customer.id)) {
           customers.unshift(customer);

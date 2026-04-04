@@ -163,6 +163,17 @@
     localStorage.removeItem(TOKEN_KEY);
   }
 
+  async function validateStoredSession(token) {
+    try {
+      const r = await fetch('/api/config', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return r.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async function tryUnlock() {
     pwdBtn.disabled = true;
     try {
@@ -186,12 +197,19 @@
     }
   }
 
-  // 检查 session：有 token 则直接进入（server 重启后 token 会失效，届时 API 返回 401 → 子页面触发重新登录）
-  if (localStorage.getItem(SESSION_KEY) === '1' && localStorage.getItem(TOKEN_KEY)) {
-    unlock(localStorage.getItem(TOKEN_KEY));
-  } else {
+  // 启动时先校验旧 token，避免 server 重启后子页面在 iframe 里反复 401 刷新。
+  (async function bootstrapAuth() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (localStorage.getItem(SESSION_KEY) === '1' && token) {
+      const valid = await validateStoredSession(token);
+      if (valid) {
+        unlock(token);
+        return;
+      }
+      lock();
+    }
     setTimeout(() => pwdInput.focus(), 100);
-  }
+  })();
 
   pwdBtn.addEventListener('click', tryUnlock);
   pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
@@ -248,6 +266,12 @@
       const tab = e.data.tab;
       if (!VALID_TABS.includes(tab)) return; // 拒绝非法 tab 名
       switchToPage('pages/' + tab + '.html', e.data.customer || null);
+      return;
+    }
+
+    if (e.data?.action === 'authExpired') {
+      lock();
+      setTimeout(() => pwdInput.focus(), 100);
     }
   });
 </script>

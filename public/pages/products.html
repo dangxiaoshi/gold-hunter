@@ -362,7 +362,12 @@ function apiFetch(url, opts = {}) {
   const token = localStorage.getItem('gh2_token') || '';
   const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
   return fetch(url, { ...opts, headers }).then(r => {
-    if (r.status === 401) { localStorage.clear(); location.reload(); }
+    if (r.status === 401) {
+      localStorage.removeItem('gh2_auth');
+      localStorage.removeItem('gh2_token');
+      try { window.parent.postMessage({ action: 'authExpired' }, '*'); } catch (err) {}
+      throw new Error('unauthorized');
+    }
     return r;
   });
 }
