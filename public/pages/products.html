@@ -357,6 +357,16 @@
 </div>
 
 <script>
+/* ── Auth helper ── */
+function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('gh2_token') || '';
+  const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
+  return fetch(url, { ...opts, headers }).then(r => {
+    if (r.status === 401) { localStorage.clear(); location.reload(); }
+    return r;
+  });
+}
+
 /* ── Default Data ── */
 const DEFAULT_PRODUCTS = [
   {
@@ -509,14 +519,14 @@ const DEFAULT_PRODUCTS = [
 /* ── Storage ── */
 async function loadProductsFromServer() {
   try {
-    const data = await fetch('/api/products').then(r => r.json());
+    const data = await apiFetch('/api/products').then(r => r.json());
     if (data && data.length) return data;
   } catch(e) {}
   return DEFAULT_PRODUCTS.map(p => ({ ...p }));
 }
 
 function saveProducts(prods) {
-  fetch('/api/products', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prods) });
+  apiFetch('/api/products', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(prods) });
 }
 
 /* ── State ── */

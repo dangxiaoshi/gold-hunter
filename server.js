@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -10,14 +11,43 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 const DB_PATH = path.join(__dirname, 'data', 'customers.json');
 const PRODUCTS_PATH = path.join(__dirname, 'data', 'products.json');
 
+// ── Session Token Auth ────────────────────────────────────────────────────────
+let sessionToken = null;
+
+app.post('/api/login', (req, res) => {
+  const cfg = loadConfig();
+  const password = cfg.password || 'gaoqiantongxue';
+  if (req.body.password === password) {
+    sessionToken = crypto.randomUUID();
+    res.json({ ok: true, token: sessionToken });
+  } else {
+    res.status(401).json({ ok: false, error: '密码错误' });
+  }
+});
+
+// Protect all /api/* except /api/login
+app.use('/api', (req, res, next) => {
+  if (req.path === '/login') return next();
+  const auth = req.headers['authorization'] || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token || token !== sessionToken) return res.status(401).json({ error: 'unauthorized' });
+  next();
+});
+
 // ── JSON DB ───────────────────────────────────────────────────────────────────
+let dbCache = null;
+let enrichedCache = null;
+
 function loadDB() {
-  if (!fs.existsSync(DB_PATH)) return { customers: {} };
-  try { return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
-  catch { return { customers: {} }; }
+  if (dbCache) return dbCache;
+  if (!fs.existsSync(DB_PATH)) { dbCache = { customers: {} }; return dbCache; }
+  try { dbCache = JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); return dbCache; }
+  catch { dbCache = { customers: {} }; return dbCache; }
 }
 
 function saveDB(db) {
+  dbCache = db;
+  enrichedCache = null;
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
 }
 
@@ -87,7 +117,7 @@ app.post('/api/import', (req, res) => {
     }
   }
 
-  saveDB(db);
+  saveDB(db);  // also clears enrichedCache
   res.json({ imported, skipped, total: imported + skipped });
 });
 
@@ -108,39 +138,34 @@ function getWechatData(account, cfg) {
 // Customers list
 app.get('/api/customers', (req, res) => {
   const { search, limit = 100, offset = 0 } = req.query;
-  const db = loadDB();
-  const cfg = loadConfig();
 
-  let list = Object.values(db.customers).filter(c => !c.hidden);
+  if (!enrichedCache) {
+    const db = loadDB();
+    const cfg = loadConfig();
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const all = Object.values(db.customers).filter(c => !c.hidden).map(c => {
+      const data = getWechatData(c.account, cfg);
+      const msgs = data[c.name] || [];
+      const last = msgs[msgs.length - 1];
+      const lastTime = last?.time || '';
+      const messageCount = msgs.length;
+      const lastMs = lastTime ? new Date(lastTime.replace(' ', 'T')).getTime() : 0;
+      const highIntent = !isNaN(lastMs) && lastMs >= thirtyDaysAgo && messageCount >= 5;
+      return { ...c, lastMessage: last?.content?.slice(0, 40) || '', lastTime, messageCount, highIntent };
+    });
+    all.sort((a, b) => {
+      if (b.highIntent !== a.highIntent) return (b.highIntent ? 1 : 0) - (a.highIntent ? 1 : 0);
+      return b.updatedAt - a.updatedAt;
+    });
+    enrichedCache = all;
+    console.log(`[cache] enriched ${all.length} customers`);
+  }
+
+  let list = enrichedCache;
   if (search) list = list.filter(c => c.name.includes(search));
 
-  // Enrich with message data (needed for high-intent sort)
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const enriched = list.map(c => {
-    const data = getWechatData(c.account, cfg);
-    const msgs = data[c.name] || [];
-    const last = msgs[msgs.length - 1];
-    const lastTime = last?.time || '';
-    const messageCount = msgs.length;
-    const lastMs = lastTime ? new Date(lastTime.replace(' ', 'T')).getTime() : 0;
-    const highIntent = !isNaN(lastMs) && lastMs >= thirtyDaysAgo && messageCount >= 5;
-    return {
-      ...c,
-      lastMessage: last?.content?.slice(0, 40) || '',
-      lastTime,
-      messageCount,
-      highIntent
-    };
-  });
-
-  // Sort: high-intent first, then by updatedAt desc
-  enriched.sort((a, b) => {
-    if (b.highIntent !== a.highIntent) return (b.highIntent ? 1 : 0) - (a.highIntent ? 1 : 0);
-    return b.updatedAt - a.updatedAt;
-  });
-
-  const total = enriched.length;
-  const page = enriched.slice(Number(offset), Number(offset) + Number(limit));
+  const total = list.length;
+  const page = list.slice(Number(offset), Number(offset) + Number(limit));
   res.json({ customers: page, total });
 });
 
@@ -151,13 +176,8 @@ app.get('/api/customers/:id/messages', (req, res) => {
   if (!customer) return res.status(404).json({ error: 'not found' });
 
   const cfg = loadConfig();
-  const filePath = cfg.dataPaths.find(p => p.includes(customer.account));
-  if (!filePath || !fs.existsSync(filePath)) return res.json([]);
-
-  try {
-    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    res.json(data[customer.name] || []);
-  } catch { res.json([]); }
+  const data = getWechatData(customer.account, cfg);
+  res.json(data[customer.name] || []);
 });
 
 // Update customer state
@@ -236,6 +256,12 @@ async function streamFromAnthropic(apiKey, model, messages, res, baseUrl) {
       messages: messages.filter(m => m.role !== 'system')
     })
   });
+
+  if (!response.ok) {
+    const err = await response.text();
+    res.write(`data: ${JSON.stringify({ error: err })}\n\n`);
+    res.end(); return;
+  }
 
   for await (const chunk of response.body) {
     const lines = chunk.toString().split('\n').filter(l => l.startsWith('data: '));

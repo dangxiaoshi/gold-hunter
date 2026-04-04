@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>金币猎人 — 宣传海报</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0d0d;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: -apple-system, 'PingFang SC', sans-serif;
+    gap: 16px;
+  }
+  canvas { display: block; }
+  .tip {
+    color: #444;
+    font-size: 12px;
+    text-align: center;
+    line-height: 1.8;
+  }
+  .tip a {
+    color: #f0b429;
+    cursor: pointer;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1080"></canvas>
+<div class="tip">
+  <a onclick="download()">↓ 下载 PNG</a>
+  &nbsp;·&nbsp; 右键另存也行
+</div>
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+const W = 1080, H = 1080;
+
+// ── 背景 ──────────────────────────────────────────────
+const bg = ctx.createLinearGradient(0, 0, 0, H);
+bg.addColorStop(0, '#0e0e0e');
+bg.addColorStop(1, '#141414');
+ctx.fillStyle = bg;
+ctx.fillRect(0, 0, W, H);
+
+// ── 金色光晕（右上角） ──────────────────────────────
+const glow = ctx.createRadialGradient(820, 180, 0, 820, 180, 500);
+glow.addColorStop(0, 'rgba(240,180,41,0.12)');
+glow.addColorStop(1, 'rgba(240,180,41,0)');
+ctx.fillStyle = glow;
+ctx.fillRect(0, 0, W, H);
+
+// ── 网格线（质感） ─────────────────────────────────
+ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+ctx.lineWidth = 1;
+for (let x = 0; x < W; x += 60) {
+  ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+}
+for (let y = 0; y < H; y += 60) {
+  ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+}
+
+// ── 顶部细线装饰 ─────────────────────────────────────
+ctx.strokeStyle = '#f0b429';
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.moveTo(80, 100); ctx.lineTo(220, 100);
+ctx.stroke();
+
+ctx.strokeStyle = 'rgba(240,180,41,0.3)';
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(230, 100); ctx.lineTo(340, 100);
+ctx.stroke();
+
+// ── 标签 ─────────────────────────────────────────────
+ctx.fillStyle = 'rgba(240,180,41,0.12)';
+roundRect(ctx, 80, 118, 172, 32, 6);
+ctx.fill();
+ctx.strokeStyle = 'rgba(240,180,41,0.35)';
+ctx.lineWidth = 1;
+roundRect(ctx, 80, 118, 172, 32, 6);
+ctx.stroke();
+
+ctx.fillStyle = '#f0b429';
+ctx.font = '600 13px -apple-system, PingFang SC, sans-serif';
+ctx.letterSpacing = '2px';
+ctx.fillText('微信销售跟进神器', 96, 139);
+ctx.letterSpacing = '0px';
+
+// ── 主标题 ───────────────────────────────────────────
+ctx.fillStyle = '#ffffff';
+ctx.font = 'bold 112px -apple-system, PingFang SC, sans-serif';
+ctx.fillText('金币', 80, 310);
+
+// "猎人" 金色
+const grad = ctx.createLinearGradient(80, 200, 560, 320);
+grad.addColorStop(0, '#f0c040');
+grad.addColorStop(0.5, '#ffe080');
+grad.addColorStop(1, '#c88a00');
+ctx.fillStyle = grad;
+ctx.fillText('猎人', 300, 310);
+
+// 版本
+ctx.fillStyle = '#f0b429';
+ctx.font = '600 22px -apple-system, PingFang SC, sans-serif';
+ctx.fillText('V 2.0', 80, 358);
+
+// ── 分隔线 ───────────────────────────────────────────
+ctx.strokeStyle = 'rgba(240,180,41,0.2)';
+ctx.lineWidth = 1;
+ctx.beginPath(); ctx.moveTo(80, 390); ctx.lineTo(W - 80, 390); ctx.stroke();
+
+// ── 副标题 ───────────────────────────────────────────
+ctx.fillStyle = '#888';
+ctx.font = '300 28px -apple-system, PingFang SC, sans-serif';
+ctx.fillText('用 AI 读懂每一个潜在客户', 80, 440);
+
+// ── 功能卡片 ─────────────────────────────────────────
+const features = [
+  { icon: '💬', title: '聊天记录全览', desc: '跨账号汇聚，一屏看完所有对话' },
+  { icon: '🧠', title: 'AI 跟进建议',  desc: '读懂客户状态，给出下一句话' },
+  { icon: '📊', title: '销售进度看板', desc: '5 阶段漏斗，哪里卡一目了然'  },
+  { icon: '🏷️', title: '高意向标记',   desc: '快速打标，联系人秒筛不漏单' },
+];
+
+const cardW = 218, cardH = 170, cardX0 = 80, cardY0 = 490, gap = 20;
+features.forEach((f, i) => {
+  const x = cardX0 + i * (cardW + gap);
+  const y = cardY0;
+
+  // 卡片背景
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  roundRect(ctx, x, y, cardW, cardH, 12);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, x, y, cardW, cardH, 12);
+  ctx.stroke();
+
+  // 顶部金色小条
+  ctx.fillStyle = '#f0b429';
+  roundRect(ctx, x + 16, y - 2, 32, 4, 2);
+  ctx.fill();
+
+  // icon
+  ctx.font = '32px serif';
+  ctx.fillText(f.icon, x + 16, y + 52);
+
+  // title
+  ctx.fillStyle = '#d0d0d0';
+  ctx.font = 'bold 17px -apple-system, PingFang SC, sans-serif';
+  ctx.fillText(f.title, x + 16, y + 90);
+
+  // desc
+  ctx.fillStyle = '#555';
+  ctx.font = '13px -apple-system, PingFang SC, sans-serif';
+  wrapText(ctx, f.desc, x + 16, y + 116, cardW - 32, 20);
+});
+
+// ── 底部分隔 ──────────────────────────────────────────
+ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+ctx.lineWidth = 1;
+ctx.beginPath(); ctx.moveTo(80, 700); ctx.lineTo(W - 80, 700); ctx.stroke();
+
+// ── 截图描述文案 ──────────────────────────────────────
+ctx.fillStyle = '#3a3a3a';
+ctx.font = '15px -apple-system, PingFang SC, sans-serif';
+ctx.fillText('每天早上打开，它已经帮你把高意向客户排好了队。', 80, 740);
+ctx.fillStyle = '#2e2e2e';
+ctx.fillText('你只需要打招呼。', 80, 766);
+
+// ── 底部 CTA 区域 ─────────────────────────────────────
+// CTA 背景
+ctx.fillStyle = 'rgba(240,180,41,0.08)';
+roundRect(ctx, 80, 820, 560, 72, 10);
+ctx.fill();
+ctx.strokeStyle = 'rgba(240,180,41,0.2)';
+ctx.lineWidth = 1;
+roundRect(ctx, 80, 820, 560, 72, 10);
+ctx.stroke();
+
+ctx.fillStyle = '#f0b429';
+ctx.font = 'bold 18px -apple-system, PingFang SC, sans-serif';
+ctx.fillText('🔑  私信「猎人」获取内测资格', 108, 862);
+
+// 右侧装饰徽章
+ctx.fillStyle = '#1c1c1c';
+roundRect(ctx, 700, 820, 300, 72, 10);
+ctx.fill();
+ctx.strokeStyle = '#f0b429';
+ctx.lineWidth = 1.5;
+roundRect(ctx, 700, 820, 300, 72, 10);
+ctx.stroke();
+
+ctx.fillStyle = '#f0b429';
+ctx.font = 'bold 13px -apple-system, PingFang SC, sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('🏆 内测用户成交率提升', 850, 848);
+ctx.font = 'bold 26px -apple-system, PingFang SC, sans-serif';
+ctx.fillStyle = '#ffe080';
+ctx.fillText('3.2×', 850, 876);
+ctx.textAlign = 'left';
+
+// ── 底部版权小字 ──────────────────────────────────────
+ctx.fillStyle = '#2a2a2a';
+ctx.font = '12px -apple-system, PingFang SC, sans-serif';
+ctx.fillText('金币猎人 · 为销售而生 · 2026', 80, 1040);
+
+ctx.fillStyle = '#333';
+ctx.font = '12px -apple-system, PingFang SC, sans-serif';
+ctx.textAlign = 'right';
+ctx.fillText('gold-hunter.v2', W - 80, 1040);
+ctx.textAlign = 'left';
+
+// ── 右侧大号装饰字符 ──────────────────────────────────
+ctx.save();
+ctx.globalAlpha = 0.04;
+ctx.fillStyle = '#f0b429';
+ctx.font = 'bold 420px -apple-system, PingFang SC, sans-serif';
+ctx.fillText('¥', 600, 720);
+ctx.restore();
+
+// ── 工具函数 ──────────────────────────────────────────
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, x, y, maxW, lineH) {
+  const chars = text.split('');
+  let line = '';
+  for (let i = 0; i < chars.length; i++) {
+    const test = line + chars[i];
+    if (ctx.measureText(test).width > maxW && i > 0) {
+      ctx.fillText(line, x, y);
+      line = chars[i];
+      y += lineH;
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line, x, y);
+}
+
+function download() {
+  const a = document.createElement('a');
+  a.download = '金币猎人-宣传海报.png';
+  a.href = c.toDataURL('image/png');
+  a.click();
+}
+</script>
+</body>
+</html>

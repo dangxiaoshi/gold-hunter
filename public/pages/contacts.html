@@ -798,6 +798,16 @@
 </div>
 
 <script>
+/* ── Auth helper ── */
+function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('gh2_token') || '';
+  const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
+  return fetch(url, { ...opts, headers }).then(r => {
+    if (r.status === 401) { localStorage.clear(); location.reload(); }
+    return r;
+  });
+}
+
 const META_STORAGE_KEY = 'gh_contacts_meta';
 const PAGE_SIZE = 80;
 const SOURCE_GROUPS = [
@@ -818,7 +828,7 @@ let metaMap = loadMetaMap();
 let activeGroup = 'all';
 let activeTag = '';
 let searchKeyword = '';
-let activeCustomerName = '';
+let activeCustomerId = '';
 let searchTimer = null;
 let noteSaveTimer = null;
 
@@ -826,7 +836,7 @@ async function init() {
   bindEvents();
   renderFilters();
   try {
-    config = await fetch('/api/config').then(r => r.ok ? r.json() : {});
+    config = await apiFetch('/api/config').then(r => r.ok ? r.json() : {});
   } catch (err) {
     config = {};
   }
@@ -847,12 +857,12 @@ function bindEvents() {
   document.getElementById('drawer-close').addEventListener('click', closeDrawer);
 
   document.getElementById('note-input').addEventListener('input', (event) => {
-    if (!activeCustomerName) return;
-    const customerName = activeCustomerName;
+    if (!activeCustomerId) return;
+    const customerId = activeCustomerId;
     const value = event.target.value;
     clearTimeout(noteSaveTimer);
     noteSaveTimer = setTimeout(() => {
-      updateMeta(customerName, { note: value });
+      updateMeta(customerId, { note: value });
       renderCards();
     }, 120);
   });
@@ -861,14 +871,15 @@ function bindEvents() {
     if (event.key !== 'Enter') return;
     event.preventDefault();
     const value = event.target.value.trim();
-    if (!value || !activeCustomerName) return;
-    addTag(activeCustomerName, value);
+    if (!value || !activeCustomerId) return;
+    addTag(activeCustomerId, value);
     event.target.value = '';
   });
 
   document.getElementById('jump-chat-btn').addEventListener('click', () => {
-    if (!activeCustomerName) return;
-    jumpToChat(activeCustomerName);
+    if (!activeCustomerId) return;
+    const c = customers.find(item => item.id === activeCustomerId);
+    if (c) jumpToChat(c.name);
   });
 
   document.addEventListener('keydown', (event) => {
@@ -1060,12 +1071,12 @@ function renderCards() {
     ${renderLoadMoreHint()}
   `;
   root.querySelectorAll('.contact-card').forEach((card) => {
-    card.addEventListener('click', () => openDrawer(card.dataset.name));
+    card.addEventListener('click', () => openDrawer(card.dataset.id));
   });
 }
 
 function customerCardHTML(customer) {
-  const meta = getCustomerMeta(customer.name);
+  const meta = getCustomerMeta(customer.id);
   const note = meta.note.trim();
   const tags = meta.tags;
   const noteSummary = note || '还没有备注，点击卡片添加跟进信息。';
@@ -1075,11 +1086,11 @@ function customerCardHTML(customer) {
   const visibleTags = tags.slice(0, 2).map(tag => `<span class="tag-chip">${escHtml(tag)}</span>`).join('');
   const extraTag = tags.length > 2 ? `<span class="tag-chip">+${tags.length - 2}</span>` : '';
   const lastMessage = customer.lastMsg ? escHtml(customer.lastMsg) : '暂无消息记录';
-  const activeClass = customer.name === activeCustomerName ? 'active' : '';
+  const activeClass = customer.id === activeCustomerId ? 'active' : '';
   const highIntentClass = customer.isHighIntent ? 'high-intent' : '';
 
   return `
-    <article class="contact-card ${activeClass} ${highIntentClass}" data-name="${escapeAttr(customer.name)}">
+    <article class="contact-card ${activeClass} ${highIntentClass}" data-id="${escapeAttr(customer.id)}" data-name="${escapeAttr(customer.name)}">
       <div class="card-top">
         <div class="identity">
           <div class="avatar" style="background:${avatarColor(customer.name)}">${escHtml(initialChar(customer.name))}</div>
@@ -1174,12 +1185,12 @@ function setLoadingState() {
   `;
 }
 
-function openDrawer(customerName) {
-  activeCustomerName = customerName;
-  const customer = customers.find(item => item.name === customerName);
+function openDrawer(customerId) {
+  activeCustomerId = customerId;
+  const customer = customers.find(item => item.id === customerId);
   if (!customer) return;
 
-  const meta = getCustomerMeta(customerName);
+  const meta = getCustomerMeta(customerId);
   const sourceLabel = customer.source === 'main' ? '主号' : '副号';
   const sourceEl = document.getElementById('drawer-source');
   sourceEl.textContent = sourceLabel;
@@ -1209,22 +1220,22 @@ function openDrawer(customerName) {
 }
 
 function syncDrawerState() {
-  if (!activeCustomerName) return;
-  const exists = customers.some(item => item.name === activeCustomerName);
+  if (!activeCustomerId) return;
+  const exists = customers.some(item => item.id === activeCustomerId);
   if (!exists) {
     closeDrawer();
     return;
   }
 
-  const customer = customers.find(item => item.name === activeCustomerName);
+  const customer = customers.find(item => item.id === activeCustomerId);
   if (!customer) return;
-  const meta = getCustomerMeta(activeCustomerName);
+  const meta = getCustomerMeta(activeCustomerId);
   document.getElementById('note-input').value = meta.note;
   renderDrawerTags(meta.tags);
 }
 
 function closeDrawer() {
-  activeCustomerName = '';
+  activeCustomerId = '';
   document.getElementById('drawer-mask').classList.remove('open');
   document.getElementById('detail-drawer').classList.remove('open');
   document.getElementById('detail-drawer').setAttribute('aria-hidden', 'true');
@@ -1244,7 +1255,7 @@ function renderDrawerTags(tags) {
     </button>
   `).join('');
   root.querySelectorAll('.drawer-tag').forEach((button) => {
-    button.addEventListener('click', () => removeTag(activeCustomerName, button.dataset.tag));
+    button.addEventListener('click', () => removeTag(activeCustomerId, button.dataset.tag));
   });
 }
 
@@ -1253,7 +1264,7 @@ function addTag(customerName, tag) {
   if (meta.tags.includes(tag)) return;
   updateMeta(customerName, { tags: [...meta.tags, tag] });
   applyFilters();
-  if (activeCustomerName === customerName) openDrawer(customerName);
+  if (activeCustomerId === customerName) openDrawer(customerName);
 }
 
 function removeTag(customerName, tag) {
@@ -1261,7 +1272,7 @@ function removeTag(customerName, tag) {
   updateMeta(customerName, { tags: meta.tags.filter(item => item !== tag) });
   if (activeTag === tag && !getAllTags().some(item => item.name === tag)) activeTag = '';
   applyFilters();
-  if (activeCustomerName === customerName) openDrawer(customerName);
+  if (activeCustomerId === customerName) openDrawer(customerName);
 }
 
 function updateMeta(customerName, patch) {

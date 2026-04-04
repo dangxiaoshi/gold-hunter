@@ -137,9 +137,8 @@
 </div>
 
 <script>
-  // ── 密码配置（前端简单保护，私人工具用）──
-  const PASSWORD = 'gaoqiantongxue';
   const SESSION_KEY = 'gh2_auth';
+  const TOKEN_KEY = 'gh2_token';
 
   const lockScreen = document.getElementById('lock-screen');
   const app = document.getElementById('app');
@@ -148,10 +147,11 @@
   const pwdError = document.getElementById('pwd-error');
   const pageFrame = document.getElementById('page-frame');
 
-  function unlock() {
+  function unlock(token) {
+    localStorage.setItem(SESSION_KEY, '1');
+    localStorage.setItem(TOKEN_KEY, token);
     lockScreen.classList.add('hidden');
     app.classList.remove('hidden');
-    sessionStorage.setItem(SESSION_KEY, '1');
   }
 
   function lock() {
@@ -159,22 +159,36 @@
     lockScreen.classList.remove('hidden');
     pwdInput.value = '';
     pwdError.textContent = '';
-    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(TOKEN_KEY);
   }
 
-  function tryUnlock() {
-    if (pwdInput.value === PASSWORD) {
-      unlock();
-    } else {
-      pwdError.textContent = '密码不对，再试一次';
-      pwdInput.value = '';
-      pwdInput.focus();
+  async function tryUnlock() {
+    pwdBtn.disabled = true;
+    try {
+      const r = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwdInput.value })
+      });
+      if (r.ok) {
+        const { token } = await r.json();
+        unlock(token);
+      } else {
+        pwdError.textContent = '密码不对，再试一次';
+        pwdInput.value = '';
+        pwdInput.focus();
+      }
+    } catch {
+      pwdError.textContent = '连接失败，请刷新重试';
+    } finally {
+      pwdBtn.disabled = false;
     }
   }
 
-  // 检查 session
-  if (sessionStorage.getItem(SESSION_KEY) === '1') {
-    unlock();
+  // 检查 session：有 token 则直接进入（server 重启后 token 会失效，届时 API 返回 401 → 子页面触发重新登录）
+  if (localStorage.getItem(SESSION_KEY) === '1' && localStorage.getItem(TOKEN_KEY)) {
+    unlock(localStorage.getItem(TOKEN_KEY));
   } else {
     setTimeout(() => pwdInput.focus(), 100);
   }
@@ -192,6 +206,49 @@
       btn.classList.add('active');
       pageFrame.src = btn.dataset.page;
     });
+  });
+
+  // 跨页面通信：接收子页面发来的跳转请求
+  const VALID_TABS = ['chat', 'contacts', 'scripts', 'products', 'playbook'];
+  let pendingLoadHandler = null;
+
+  function switchToPage(targetPage, customerName) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.page === targetPage);
+    });
+
+    // 取消上一个还未触发的 load 监听，避免重复
+    if (pendingLoadHandler) {
+      pageFrame.removeEventListener('load', pendingLoadHandler);
+      pendingLoadHandler = null;
+    }
+
+    const currentSrc = pageFrame.contentWindow?.location?.pathname?.split('/').slice(-2).join('/') || '';
+    const alreadyThere = currentSrc === targetPage || pageFrame.getAttribute('src') === targetPage;
+
+    if (alreadyThere) {
+      if (customerName) {
+        pageFrame.contentWindow.postMessage({ action: 'selectCustomer', name: customerName }, location.origin);
+      }
+    } else {
+      pageFrame.src = targetPage;
+      if (customerName) {
+        pendingLoadHandler = function onLoad() {
+          pageFrame.removeEventListener('load', pendingLoadHandler);
+          pendingLoadHandler = null;
+          pageFrame.contentWindow.postMessage({ action: 'selectCustomer', name: customerName }, location.origin);
+        };
+        pageFrame.addEventListener('load', pendingLoadHandler);
+      }
+    }
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.data?.action === 'switchTab') {
+      const tab = e.data.tab;
+      if (!VALID_TABS.includes(tab)) return; // 拒绝非法 tab 名
+      switchToPage('pages/' + tab + '.html', e.data.customer || null);
+    }
   });
 </script>
 </body>

@@ -232,6 +232,16 @@
 
 </div>
 <script>
+/* ── Auth helper ── */
+function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('gh2_token') || '';
+  const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
+  return fetch(url, { ...opts, headers }).then(r => {
+    if (r.status === 401) { localStorage.clear(); location.reload(); }
+    return r;
+  });
+}
+
 /* ── State ── */
 let config = {};
 let customers = [];
@@ -255,7 +265,7 @@ const aiStateMap = loadAiStateMap();
 
 /* ── Boot ── */
 async function init() {
-  config = await fetch('/api/config').then(r => r.json());
+  config = await apiFetch('/api/config').then(r => r.json());
   setupDragHandles();
   setupBattleBar();
   setupInput();
@@ -473,7 +483,7 @@ async function updateProductSelect() {
   const sel = document.getElementById('product-select');
   let prodNames = config.products || [];
   try {
-    const libProds = await fetch('/api/products').then(r => r.json());
+    const libProds = await apiFetch('/api/products').then(r => r.json());
     if (libProds && libProds.length) prodNames = libProds.map(p => p.name);
   } catch(e) {}
   sel.innerHTML = '<option value="">选产品</option>' +
@@ -704,7 +714,7 @@ async function runAnalyze(pastedText) {
   saveAiMsg('user', '粘贴分析', userContent);
   const bubbleEl = addAiMsg('assistant', '📊 分析中…');
   try {
-    const res = await fetch('/api/ai/analyze', {
+    const res = await apiFetch('/api/ai/analyze', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: messages.slice(-30), customerName: activeCustomer.name, pastedText })
     });
@@ -737,7 +747,7 @@ async function runTactics() {
   // 从产品库取产品卡
   let productCard = null;
   try {
-    const prods = await fetch('/api/products').then(r => r.json());
+    const prods = await apiFetch('/api/products').then(r => r.json());
     const p = prods.find(x => x.name === currentProduct || (currentProduct && x.name.includes(currentProduct)));
     if (p) {
       productCard = [
@@ -756,7 +766,7 @@ async function runTactics() {
   let sampleScripts = [];
   try {
     const stageMap = { '建立链接': '建立连接', '同步信息': '建立连接', '挖掘需求': '挖掘需求', '解决顾虑': '解决顾虑', '达成成交': '最后成交' };
-    const cfg = await fetch('/api/config').then(r=>r.json()).catch(()=>({progressStages:[]}));
+    const cfg = await apiFetch('/api/config').then(r=>r.json()).catch(()=>({progressStages:[]}));
     const stageName = cfg.progressStages?.[currentStage] || '';
     const mappedStage = stageMap[stageName] || '';
     const scriptData = JSON.parse(localStorage.getItem('gh_scripts_v5') || '{"scripts":[]}');
@@ -768,7 +778,7 @@ async function runTactics() {
   } catch(e) {}
 
   try {
-    const res = await fetch('/api/ai/tactics', {
+    const res = await apiFetch('/api/ai/tactics', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: messages.slice(-20), customerName: activeCustomer.name, product: currentProduct, progressStage: currentStage, daysSince, phase, productCard, sampleScripts })
     });
@@ -790,7 +800,7 @@ async function sendAiMessage(text) {
   saveAiMsg('user', '你', text);
   const bubbleEl = addAiMsg('assistant', 'AI 回复中…');
   try {
-    const res = await fetch('/api/ai/chat', {
+    const res = await apiFetch('/api/ai/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ history: state.history.slice(-20), customerName: activeCustomer.name, recentMessages: messages.slice(-20) })
     });
@@ -866,7 +876,7 @@ function setupAddCustomer() {
   document.getElementById('add-btn').addEventListener('click', async () => {
     const name = prompt('输入客户微信名：');
     if (!name) return;
-    const res = await fetch('/api/customers', {
+    const res = await apiFetch('/api/customers', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, account: 'manual' })
     });
@@ -880,7 +890,7 @@ function setupImport() {
     btn.textContent = '…';
     btn.disabled = true;
     try {
-      const data = await fetch('/api/import', { method: 'POST' }).then(r => r.json());
+      const data = await apiFetch('/api/import', { method: 'POST' }).then(r => r.json());
       alert(`✓ 新增 ${data.imported} 个客户，已存在 ${data.skipped} 个`);
       await loadCustomers();
     } catch (e) {
@@ -908,6 +918,31 @@ function formatTime(timeStr) {
 
 /* ── Start ── */
 init();
+
+// 跨页面通信：接收父框架发来的"选中客户"指令
+window.addEventListener('message', async (e) => {
+  if (e.data?.action === 'selectCustomer' && e.data.name) {
+    const name = e.data.name;
+    try {
+      // 先在已加载的列表里找
+      let customer = customers.find(c => c.name === name);
+      if (!customer) {
+        // 没找到就去接口搜
+        const data = await fetch(`/api/customers?limit=1&search=${encodeURIComponent(name)}`).then(r => r.json());
+        customer = (data.customers || data)[0];
+        if (customer && !customers.find(c => c.id === customer.id)) {
+          customers.unshift(customer);
+          renderCustomerList();
+        }
+      }
+      if (customer) {
+        selectCustomer(customer.id);
+      }
+    } catch (err) {
+      console.error('selectCustomer via postMessage failed:', err);
+    }
+  }
+});
 </script>
 </body>
 </html>
