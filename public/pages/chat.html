@@ -164,6 +164,16 @@
     #ai-input { width: 100%; background: transparent; border: none; outline: none; resize: none; color: #d0d0d0; font-size: 12.5px; line-height: 1.5; padding: 10px 12px; min-height: 64px; max-height: 160px; }
     #ai-input::placeholder { color: #333; }
 
+    /* 知识库参考原文块 */
+    .kb-ref-section { margin-top: 8px; border-top: 1px solid #222; padding-top: 8px; max-width: 90%; }
+    .kb-ref-header { font-size: 11px; color: #555; margin-bottom: 6px; }
+    .kb-ref-chunk { background: #111; border: 1px solid #1e1e1e; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; font-size: 11.5px; }
+    .kb-ref-title { color: #666; margin-bottom: 4px; }
+    .kb-ref-title strong { color: #888; }
+    .kb-ref-body { color: #4a4a4a; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .kb-ref-toggle { color: #444; font-size: 11px; cursor: pointer; margin-top: 4px; display: inline-block; }
+    .kb-ref-toggle:hover { color: #666; }
+
     /* Misc */
     .empty-list { text-align: center; color: #333; padding: 40px 16px; font-size: 12px; }
   </style>
@@ -705,7 +715,7 @@ function addAiMsg(role, label, initialText = '') {
   return bubbleEl;
 }
 
-async function streamIntoBubble(res, bubbleEl) {
+async function streamIntoBubble(res, bubbleEl, onReferenceChunks) {
   const cursor = document.createElement('span');
   cursor.className = 'ai-cursor';
   bubbleEl.appendChild(cursor);
@@ -730,6 +740,10 @@ async function streamIntoBubble(res, bubbleEl) {
         if (data === '[DONE]') { cursor.remove(); continue; }
         try {
           const parsed = JSON.parse(data);
+          if (parsed.referenceChunks && onReferenceChunks) {
+            onReferenceChunks(parsed.referenceChunks);
+            continue;
+          }
           if (parsed.text) {
             fullText += parsed.text;
             cursor.remove();
@@ -747,6 +761,36 @@ async function streamIntoBubble(res, bubbleEl) {
   }
   cursor.remove();
   return fullText;
+}
+
+function renderReferenceChunks(chunks, msgEl) {
+  if (!chunks || chunks.length === 0) return;
+  const section = document.createElement('div');
+  section.className = 'kb-ref-section';
+  section.innerHTML = `<div class="kb-ref-header">📚 参考原文</div>`;
+  chunks.forEach(chunk => {
+    const preview = (chunk.content || '').slice(0, 200);
+    const full = chunk.content || '';
+    const hasMore = full.length > 200;
+    const chunkEl = document.createElement('div');
+    chunkEl.className = 'kb-ref-chunk';
+    chunkEl.innerHTML = `<div class="kb-ref-title"><strong>【${chunk.date || ''}】</strong> ${escHtml(chunk.topic || '')}</div>
+<div class="kb-ref-body">${escHtml(preview)}${hasMore ? '…' : ''}</div>
+${hasMore ? `<span class="kb-ref-toggle">展开全文 ▾</span>` : ''}`;
+    if (hasMore) {
+      const toggle = chunkEl.querySelector('.kb-ref-toggle');
+      const body = chunkEl.querySelector('.kb-ref-body');
+      let expanded = false;
+      toggle.addEventListener('click', () => {
+        expanded = !expanded;
+        body.textContent = expanded ? full : preview + '…';
+        toggle.textContent = expanded ? '收起 ▴' : '展开全文 ▾';
+      });
+    }
+    section.appendChild(chunkEl);
+  });
+  msgEl.appendChild(section);
+  document.getElementById('ai-messages').scrollTop = document.getElementById('ai-messages').scrollHeight;
 }
 
 async function runAnalyze(pastedText) {
@@ -819,12 +863,13 @@ async function runTactics() {
       .map(s => s.content || s.label);
   } catch(e) {}
 
+  const msgEl = bubbleEl.parentElement;
   try {
     const res = await apiFetch('/api/ai/tactics', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: messages.slice(-20), customerName: activeCustomer.name, product: currentProduct, progressStage: currentStage, daysSince, phase, productCard, sampleScripts })
     });
-    const fullText = await streamIntoBubble(res, bubbleEl);
+    const fullText = await streamIntoBubble(res, bubbleEl, chunks => renderReferenceChunks(chunks, msgEl));
     bubbleEl.previousSibling.textContent = '🏹 话术';
     saveAiMsg('assistant', '🏹 话术', fullText);
     getAiState().history.push({ role: 'assistant', content: fullText });
@@ -871,12 +916,13 @@ async function runTacticsV1() {
       .map(s => s.content || s.label);
   } catch(e) {}
 
+  const msgEl = bubbleEl.parentElement;
   try {
     const res = await apiFetch('/api/ai/tactics-v1', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: messages, customerName: activeCustomer.name, product: currentProduct, progressStage: currentStage, productCard, sampleScripts })
     });
-    const fullText = await streamIntoBubble(res, bubbleEl);
+    const fullText = await streamIntoBubble(res, bubbleEl, chunks => renderReferenceChunks(chunks, msgEl));
     bubbleEl.previousSibling.textContent = '⚡ 话术';
     saveAiMsg('assistant', '⚡ 话术', fullText);
     getAiState().history.push({ role: 'assistant', content: fullText });
@@ -968,13 +1014,37 @@ function setupSearch() {
 
 function setupAddCustomer() {
   document.getElementById('add-btn').addEventListener('click', async () => {
-    const name = prompt('输入客户微信名：');
+    const name = (prompt('输入客户微信名：') || '').trim();
     if (!name) return;
     const res = await apiFetch('/api/customers', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, account: 'manual' })
     });
-    if (res.ok) await loadCustomers();
+    if (res.status === 409) {
+      alert('这个客户已经存在了');
+      return;
+    }
+    if (!res.ok) {
+      alert('新增失败，请稍后重试');
+      return;
+    }
+
+    const created = await res.json();
+    const normalized = {
+      ...created,
+      lastMessage: '',
+      lastTime: '',
+      messageCount: 0,
+      highIntent: false
+    };
+
+    const searchInput = document.getElementById('search-input');
+    searchInput.value = '';
+    await loadCustomers();
+
+    customers = [normalized, ...customers.filter(c => c.id !== normalized.id)];
+    renderCustomerList();
+    await selectCustomer(normalized.id);
   });
 }
 
