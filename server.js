@@ -427,6 +427,34 @@ function makeId(account, name) {
   return `${account}::${name}`;
 }
 
+function normalizeStoredMessage(msg) {
+  if (!msg || typeof msg !== 'object') return null;
+  const sender = String(msg.sender || '').trim();
+  const content = String(msg.content || '').trim();
+  const time = msg.time ? String(msg.time).trim() : '';
+  if (!sender || !content) return null;
+  return time ? { sender, content, time } : { sender, content };
+}
+
+function appendCustomerMessages(customer, incomingMessages) {
+  const existing = Array.isArray(customer.extraMessages) ? customer.extraMessages : [];
+  const existingKeys = new Set(existing.map(msg => `${msg.sender}::${msg.content}::${msg.time || ''}`));
+  let appended = 0;
+
+  for (const raw of incomingMessages || []) {
+    const msg = normalizeStoredMessage(raw);
+    if (!msg) continue;
+    const key = `${msg.sender}::${msg.content}::${msg.time || ''}`;
+    if (existingKeys.has(key)) continue;
+    existing.push(msg);
+    existingKeys.add(key);
+    appended++;
+  }
+
+  customer.extraMessages = existing;
+  return appended;
+}
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // Config
@@ -543,7 +571,7 @@ function syncCustomersFromSources(opts = {}) {
       db.customers[id] = {
         id, name, account: accountKey,
         statusEmoji: '🔥', progressStage: 0,
-        activeProduct: '', notes: '', hidden: false,
+        activeProduct: '', notes: '', hidden: false, pinned: false, unread: false,
         updatedAt: Date.now()
       };
       imported++;
@@ -573,7 +601,7 @@ app.get('/api/customers', (req, res) => {
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const all = Object.values(db.customers).filter(c => !c.hidden).map(c => {
       const data = getWechatData(c.account, cfg);
-      const msgs = data[c.name] || [];
+      const msgs = [...(data[c.name] || []), ...((Array.isArray(c.extraMessages) ? c.extraMessages : []))];
       const last = msgs[msgs.length - 1];
       const lastTime = last?.time || '';
       const messageCount = msgs.length;
@@ -582,6 +610,7 @@ app.get('/api/customers', (req, res) => {
       return { ...c, lastMessage: last?.content?.slice(0, 40) || '', lastTime, messageCount, highIntent };
     });
     all.sort((a, b) => {
+      if (Boolean(b.pinned) !== Boolean(a.pinned)) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
       if (b.highIntent !== a.highIntent) return (b.highIntent ? 1 : 0) - (a.highIntent ? 1 : 0);
       return b.updatedAt - a.updatedAt;
     });
@@ -605,7 +634,23 @@ app.get('/api/customers/:id/messages', (req, res) => {
 
   const cfg = loadConfig();
   const data = getWechatData(customer.account, cfg);
-  res.json(data[customer.name] || []);
+  res.json([...(data[customer.name] || []), ...((Array.isArray(customer.extraMessages) ? customer.extraMessages : []))]);
+});
+
+app.post('/api/customers/:id/messages', (req, res) => {
+  const db = loadDB();
+  const customer = db.customers[req.params.id];
+  if (!customer) return res.status(404).json({ error: 'not found' });
+
+  const incoming = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  const appended = appendCustomerMessages(customer, incoming);
+  customer.updatedAt = Date.now();
+  saveDB(db);
+  res.json({
+    ok: true,
+    appended,
+    total: Array.isArray(customer.extraMessages) ? customer.extraMessages.length : 0
+  });
 });
 
 // Update customer state
@@ -614,11 +659,20 @@ app.patch('/api/customers/:id', (req, res) => {
   const c = db.customers[req.params.id];
   if (!c) return res.status(404).json({ error: 'not found' });
 
-  const allowed = ['statusEmoji', 'progressStage', 'activeProduct', 'notes', 'hidden'];
+  const allowed = ['statusEmoji', 'progressStage', 'activeProduct', 'notes', 'hidden', 'pinned', 'unread'];
   for (const key of allowed) {
     if (req.body[key] !== undefined) c[key] = req.body[key];
   }
   c.updatedAt = Date.now();
+  saveDB(db);
+  res.json({ ok: true });
+});
+
+app.delete('/api/customers/:id', (req, res) => {
+  const db = loadDB();
+  const customer = db.customers[req.params.id];
+  if (!customer) return res.status(404).json({ error: 'not found' });
+  delete db.customers[req.params.id];
   saveDB(db);
   res.json({ ok: true });
 });
@@ -631,7 +685,7 @@ app.post('/api/customers', (req, res) => {
   if (db.customers[id]) return res.status(409).json({ error: 'already exists' });
   db.customers[id] = {
     id, name, account, statusEmoji: '🔥', progressStage: 0,
-    activeProduct: '', notes: '', hidden: false, updatedAt: Date.now()
+    activeProduct: '', notes: '', hidden: false, pinned: false, unread: false, extraMessages: [], updatedAt: Date.now()
   };
   saveDB(db);
   res.json(db.customers[id]);
