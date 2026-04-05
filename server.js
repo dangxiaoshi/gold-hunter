@@ -427,11 +427,29 @@ function makeId(account, name) {
   return `${account}::${name}`;
 }
 
-function normalizeStoredMessage(msg) {
+function formatDateOnly(input) {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseMessageTimeToMs(time) {
+  if (!time) return 0;
+  const raw = String(time).trim();
+  if (!raw) return 0;
+  const normalized = /\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw} 00:00:00` : raw;
+  const ms = new Date(normalized.replace(' ', 'T')).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+function normalizeStoredMessage(msg, fallbackTime = formatDateOnly(new Date())) {
   if (!msg || typeof msg !== 'object') return null;
   const sender = String(msg.sender || '').trim();
   const content = String(msg.content || '').trim();
-  const time = msg.time ? String(msg.time).trim() : '';
+  const time = msg.time ? String(msg.time).trim() : String(fallbackTime || '').trim();
   if (!sender || !content) return null;
   return time ? { sender, content, time } : { sender, content };
 }
@@ -440,9 +458,10 @@ function appendCustomerMessages(customer, incomingMessages) {
   const existing = Array.isArray(customer.extraMessages) ? customer.extraMessages : [];
   const existingKeys = new Set(existing.map(msg => `${msg.sender}::${msg.content}::${msg.time || ''}`));
   let appended = 0;
+  const fallbackTime = formatDateOnly(new Date());
 
   for (const raw of incomingMessages || []) {
-    const msg = normalizeStoredMessage(raw);
+    const msg = normalizeStoredMessage(raw, fallbackTime);
     if (!msg) continue;
     const key = `${msg.sender}::${msg.content}::${msg.time || ''}`;
     if (existingKeys.has(key)) continue;
@@ -453,6 +472,32 @@ function appendCustomerMessages(customer, incomingMessages) {
 
   customer.extraMessages = existing;
   return appended;
+}
+
+function replaceCustomerMessages(customer, incomingMessages) {
+  const fallbackTime = formatDateOnly(new Date(customer.updatedAt || Date.now()));
+  customer.extraMessages = (incomingMessages || [])
+    .map(msg => normalizeStoredMessage(msg, fallbackTime))
+    .filter(Boolean);
+  return customer.extraMessages.length;
+}
+
+function deriveCustomerActivity(messages, updatedAt) {
+  const list = Array.isArray(messages) ? messages : [];
+  const last = list[list.length - 1] || null;
+  const messageCount = list.length;
+  const lastContent = last?.content?.slice(0, 40) || '';
+  const updatedMs = Number(updatedAt) || 0;
+  const lastMs = parseMessageTimeToMs(last?.time);
+  const fallbackMs = lastMs || updatedMs;
+  const fallbackTime = last?.time || (fallbackMs ? formatDateOnly(fallbackMs) : '');
+  return {
+    last,
+    lastMessage: lastContent,
+    lastTime: fallbackTime,
+    lastActiveAt: fallbackMs,
+    messageCount
+  };
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
@@ -598,20 +643,15 @@ app.get('/api/customers', (req, res) => {
   if (!enrichedCache) {
     const db = loadDB();
     const cfg = loadConfig();
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const all = Object.values(db.customers).filter(c => !c.hidden).map(c => {
       const data = getWechatData(c.account, cfg);
       const msgs = [...(data[c.name] || []), ...((Array.isArray(c.extraMessages) ? c.extraMessages : []))];
-      const last = msgs[msgs.length - 1];
-      const lastTime = last?.time || '';
-      const messageCount = msgs.length;
-      const lastMs = lastTime ? new Date(lastTime.replace(' ', 'T')).getTime() : 0;
-      const highIntent = !isNaN(lastMs) && lastMs >= thirtyDaysAgo && messageCount >= 5;
-      return { ...c, lastMessage: last?.content?.slice(0, 40) || '', lastTime, messageCount, highIntent };
+      const activity = deriveCustomerActivity(msgs, c.updatedAt);
+      return { ...c, ...activity };
     });
     all.sort((a, b) => {
       if (Boolean(b.pinned) !== Boolean(a.pinned)) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
-      if (b.highIntent !== a.highIntent) return (b.highIntent ? 1 : 0) - (a.highIntent ? 1 : 0);
+      if ((b.lastActiveAt || 0) !== (a.lastActiveAt || 0)) return (b.lastActiveAt || 0) - (a.lastActiveAt || 0);
       return b.updatedAt - a.updatedAt;
     });
     enrichedCache = all;
@@ -634,7 +674,11 @@ app.get('/api/customers/:id/messages', (req, res) => {
 
   const cfg = loadConfig();
   const data = getWechatData(customer.account, cfg);
-  res.json([...(data[customer.name] || []), ...((Array.isArray(customer.extraMessages) ? customer.extraMessages : []))]);
+  const manualMessages = (Array.isArray(customer.extraMessages) ? customer.extraMessages : []).map(msg => {
+    if (msg?.time) return msg;
+    return normalizeStoredMessage(msg, formatDateOnly(new Date(customer.updatedAt || Date.now())));
+  }).filter(Boolean);
+  res.json([...(data[customer.name] || []), ...manualMessages]);
 });
 
 app.post('/api/customers/:id/messages', (req, res) => {
@@ -651,6 +695,22 @@ app.post('/api/customers/:id/messages', (req, res) => {
     appended,
     total: Array.isArray(customer.extraMessages) ? customer.extraMessages.length : 0
   });
+});
+
+app.put('/api/customers/:id/messages', (req, res) => {
+  const db = loadDB();
+  const customer = db.customers[req.params.id];
+  if (!customer) return res.status(404).json({ error: 'not found' });
+
+  if (customer.account !== 'manual') {
+    return res.status(400).json({ error: 'only manual customers support full message replace' });
+  }
+
+  const incoming = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  const total = replaceCustomerMessages(customer, incoming);
+  customer.updatedAt = Date.now();
+  saveDB(db);
+  res.json({ ok: true, total });
 });
 
 // Update customer state
@@ -928,7 +988,7 @@ app.post('/api/ai/tactics', async (req, res) => {
   await callAI(system, `最近聊天记录：\n\n${recentMsgs}`, res);
 });
 
-// 🏹 出击 v1 style: 完整上下文，富输出（阶段+客户类型+话术+理由）
+// 🏹 直接出击: 完整上下文，输出更贴近真人微信口语
 app.post('/api/ai/tactics-v1', async (req, res) => {
   const { messages, customerName, product, progressStage, productCard, sampleScripts } = req.body;
   const cfg = loadConfig();
@@ -956,7 +1016,7 @@ app.post('/api/ai/tactics-v1', async (req, res) => {
 播客私教课（帮助学员从零开始做播客，实现引流变现）。主理人：当小时，《搞钱搞流量》播客主理人，全平台公域粉丝破百万，私域发售一小时40w。
 
 ## 销售人员风格
-- 亲切口语化，习惯称客户为"宝"或"宝子"
+- 亲切口语化，习惯称客户为宝或宝子
 - 善用真实案例建立信任（如：我有个学员做美业，两位数播放就卖出2980的产品）
 - 会用紧迫感推动决策（如：今天最后一天/涨价前）
 - 不强推，先共情、再挖需求、再给方案
@@ -968,6 +1028,15 @@ app.post('/api/ai/tactics-v1', async (req, res) => {
 4. 解决顾虑——回应价格/时间/效果等疑虑
 5. 达成成交——给出临门一脚，推动付款
 当前阶段：${curr}，目标推进到：${next}
+
+## 阶段策略要求
+- 建立链接：先让客户愿意聊，不急着推产品
+- 同步信息：先把客户背景、现状、卡点、目标对齐
+- 挖掘需求：这是最关键的一步，优先帮销售把客户真正想要什么、为什么现在想做、最担心什么、卡在哪一步聊出来
+- 只要还在挖掘需求阶段，就不要急着给完整方案，不要急着报价，不要急着催成交
+- 挖掘需求阶段的话术重点是继续追问、确认、放大需求，让客户自己把需求说实，而不是替客户直接下结论
+- 解决顾虑：针对客户已经说出口的担心逐个化解
+- 达成成交：只在需求和顾虑已经聊透时，才给临门一脚
 
 ## 客户类型
 - 学生小白：没收入/刚起步，在乎学到什么、能不能赚到钱
@@ -986,32 +1055,37 @@ app.post('/api/ai/tactics-v1', async (req, res) => {
 - 残缺效应：永远留一个底牌让对方主动来找你
 - 成交梯度钩子：低价成交后告知可补差价升级，埋下高价单伏笔
 - 可聊不交付：成交前只描述结果，不交付具体方案
+
+## 话术硬性要求
+- 给客户的话必须像真人在微信里发消息，能直接复制发送
+- 严禁使用双引号、书名号包裹整句、markdown加粗符号、项目符号、数字清单、A/B/C、1/2/3 这类模板化表达
+- 严禁写成培训课讲义、分析报告、客服公告、销售SOP
+- 不要一上来长篇大论，语气要自然，有停顿感，像真实销售在顺着对方的话往下聊
+- 可以给多个说法，但必须用自然语言区分，比如更柔一点、再直接一点、想继续往下挖可以这样聊
+- 如果当前阶段是挖掘需求，优先输出继续挖需求的话术，不要跳到成交话术
+- 优先用口语并列来给客户选择感，比如你是更想先搞清楚这个，还是更想先解决那个，还是你现在最卡的是这块
+- 除非客户已经明显准备付款，否则不要上来就逼单
 ${productSection}${scriptsSection}${kbSection}
 
 ## 输出格式（严格按此）
-📍 当前阶段：**阶段名（X/5）→ 对当前实际进展的精准判断**
-📌 客户类型判断：**类型 + 2-3个关键信号（直接引用聊天里的原话或行为）**
+当前阶段：阶段名（X/5） + 一句精准判断
+客户类型判断：类型 + 2到3个关键信号
+一句话判断：直接说清这个客户是谁、现在真正想要什么
 
-——一句话说清这个客户是谁、现在真正想要什么。
+推荐先发：
+直接给一段可复制发送的话术，必须是自然微信口语
 
----
+如果想聊得更柔一点：
+直接给一段可复制发送的话术，必须是自然微信口语
 
-✅ 推荐话术①【话术定位标签】→ 适合场景一句话
-> （话术正文，口语化，可直接复制发送）
+如果想继续往下推进：
+直接给一段可复制发送的话术，必须是自然微信口语
 
-💡 *为什么用这条*：（2-3句，说清心理机制和使用时机）
+为什么这样聊：
+只用2到3句解释策略
 
----
-
-✅ 推荐话术②【话术定位标签】→ 适合场景一句话
-> （话术正文，口语化，可直接复制发送）
-
-💡 *为什么用这条*：（2-3句，说清心理机制和使用时机）
-
----
-
-⚠️ 下一句必须说的话（直接复制粘贴发）：
-> （一句临门一脚，承接上面所有话术选择，消除决策负担）`;
+额外要求：
+如果当前阶段是挖掘需求，那么三段话术里至少两段必须以继续挖需求为主，帮助销售把客户的目标、动机、痛点和顾虑聊出来，不要急着推方案或催成交。`;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');

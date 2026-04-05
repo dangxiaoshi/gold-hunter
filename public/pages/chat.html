@@ -382,6 +382,13 @@ function renderCustomerList() {
   };
 }
 
+function parseCustomerTime(timeStr) {
+  if (!timeStr) return 0;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(timeStr) ? `${timeStr} 00:00:00` : timeStr;
+  const ms = new Date(normalized.replace(' ', 'T')).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
 function customerCardHTML(c) {
   const active = activeCustomer?.id === c.id ? 'active' : '';
   const pinned = c.pinned ? 'pinned' : '';
@@ -472,8 +479,22 @@ function renderChat() {
       const wasOwner = messages[idx].sender === config.mySenderName;
       messages[idx].sender = wasOwner ? '__other__' : config.mySenderName;
       renderChat();
+      persistManualMessages();
     });
   });
+}
+
+async function persistManualMessages() {
+  if (!activeCustomer || activeCustomer.account !== 'manual') return;
+  try {
+    await apiFetch(`/api/customers/${activeCustomer.id}/messages`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages })
+    });
+  } catch (e) {
+    alert('消息归属保存失败，刷新后这次左右调整可能会丢失');
+  }
 }
 
 function shouldShowTime(prev, curr) {
@@ -629,7 +650,7 @@ async function handleCustomerCardAction(action, customerId) {
 
 function sortCustomersForList(a, b) {
   if (Boolean(b.pinned) !== Boolean(a.pinned)) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
-  if (Boolean(b.highIntent) !== Boolean(a.highIntent)) return (b.highIntent ? 1 : 0) - (a.highIntent ? 1 : 0);
+  if ((b.lastActiveAt || 0) !== (a.lastActiveAt || 0)) return (b.lastActiveAt || 0) - (a.lastActiveAt || 0);
   return (b.updatedAt || 0) - (a.updatedAt || 0);
 }
 
@@ -731,6 +752,7 @@ function setupInput() {
 async function parsePasteIntoChat(raw) {
   const myName = config.mySenderName || '';
   const customerName = activeCustomer?.name || '';
+  const today = new Date().toISOString().slice(0, 10);
 
   // 按行拆分，过滤空行
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
@@ -747,10 +769,10 @@ async function parsePasteIntoChat(raw) {
       const content = line.slice(colonIdx + 1).trim();
       if (!content) continue;
       const isMine = myName && prefix.includes(myName);
-      parsed.push({ sender: isMine ? myName : customerName, content });
+      parsed.push({ sender: isMine ? myName : customerName, content, time: today });
     } else {
       // 没有明确发言人，默认对方说的
-      parsed.push({ sender: customerName, content: line });
+      parsed.push({ sender: customerName, content: line, time: today });
     }
   }
 
@@ -759,6 +781,18 @@ async function parsePasteIntoChat(raw) {
   // 追加到 messages 并重新渲染
   messages = [...messages, ...parsed];
   renderChat();
+  if (activeCustomer) {
+    const last = parsed[parsed.length - 1];
+    activeCustomer.lastMessage = last?.content || activeCustomer.lastMessage || '';
+    activeCustomer.lastTime = last?.time || today;
+    activeCustomer.lastActiveAt = parseCustomerTime(activeCustomer.lastTime) || Date.now();
+    activeCustomer.messageCount = (activeCustomer.messageCount || 0) + parsed.length;
+    activeCustomer.updatedAt = Date.now();
+    customers = customers
+      .map(c => c.id === activeCustomer.id ? { ...c, ...activeCustomer } : c)
+      .sort(sortCustomersForList);
+    renderCustomerList();
+  }
 
   if (activeCustomer) {
     try {
@@ -1148,7 +1182,7 @@ function setupAddCustomer() {
       lastMessage: '',
       lastTime: '',
       messageCount: 0,
-      highIntent: false
+      lastActiveAt: 0
     };
 
     const searchInput = document.getElementById('search-input');
