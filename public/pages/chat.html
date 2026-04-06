@@ -206,7 +206,7 @@
   <!-- Left: Customer List -->
   <div id="col-left">
     <div id="col-left-header">
-      <input id="search-input" placeholder="搜索客户…" type="text">
+      <input id="search-input" placeholder="搜索客户 / 微信号 / 聊天内容…" type="text">
       <button class="icon-btn" id="add-btn" title="新增客户">＋</button>
       <button class="icon-btn" id="import-btn" title="导入聊天记录">⬆</button>
     </div>
@@ -267,26 +267,9 @@
 
 </div>
 <div id="customer-card-menu"></div>
+<script src="../lib/gh-api.js"></script>
 <script>
-/* ── Auth helper ── */
-function resolveApiUrl(path) {
-  const base = localStorage.getItem('gh2_api_base') || location.origin;
-  return base.replace(/\/$/, '') + path;
-}
-
-function apiFetch(url, opts = {}) {
-  const token = localStorage.getItem('gh2_token') || '';
-  const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` };
-  return fetch(resolveApiUrl(url), { ...opts, headers }).then(r => {
-    if (r.status === 401) {
-      localStorage.removeItem('gh2_auth');
-      localStorage.removeItem('gh2_token');
-      try { window.parent.postMessage({ action: 'authExpired' }, '*'); } catch (err) {}
-      throw new Error('unauthorized');
-    }
-    return r;
-  });
-}
+const { resolveApiUrl, apiFetch } = window.GHApi;
 
 /* ── State ── */
 let config = {};
