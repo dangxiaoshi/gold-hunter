@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>金币猎人</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@400&display=swap');
+
+  :root {
+    --gold: #f0c040;
+    --gold-dark: #c08010;
+    --orange: #e8820c;
+    --orange-bright: #ff9a20;
+    --bg: #0c0906;
+    --panel: #1c1208;
+    --panel2: #2a1c0a;
+    --green: #7ecf5a;
+    --red: #e05030;
+    --text: #d4c4a0;
+    --text-dim: #7a6a50;
+    --border: #e8820c;
+    --pixel: 2px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Press Start 2P', 'Noto Sans SC', 'PingFang SC', monospace;
+    font-size: 12px;
+    min-height: 100vh;
+    padding: 0;
+    image-rendering: pixelated;
+  }
+
+  /* ---- PIXEL BORDER UTIL ---- */
+  .px-box {
+    border: var(--pixel) solid var(--border);
+    box-shadow: 3px 3px 0 #000,
+                inset 0 0 12px rgba(232,130,12,0.05);
+  }
+  .px-box-green {
+    border: var(--pixel) solid var(--green);
+    box-shadow: var(--pixel) var(--pixel) 0 #000;
+  }
+
+  /* ---- HEADER / BANNER ---- */
+  header {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+  .banner-img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+  }
+  .banner-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.1) 40%, rgba(12,8,2,0.75) 100%);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 16px 20px;
+  }
+  .logo-coin {
+    width: 28px; height: 28px;
+    background: var(--gold);
+    border: var(--pixel) solid #000;
+    box-shadow: var(--pixel) var(--pixel) 0 #000;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    animation: coinSpin 2s steps(4) infinite;
+    flex-shrink: 0;
+  }
+  @keyframes coinSpin {
+    0%   { transform: scaleX(1); background: var(--gold); }
+    25%  { transform: scaleX(0.6); background: var(--gold-dark); }
+    50%  { transform: scaleX(0.1); background: var(--gold-dark); }
+    75%  { transform: scaleX(0.6); background: var(--gold-dark); }
+    100% { transform: scaleX(1); background: var(--gold); }
+  }
+  .banner-text { display: flex; align-items: center; gap: 10px; }
+  .title {
+    color: var(--gold);
+    font-size: 18px;
+    text-shadow: 2px 2px 0 #000, 0 0 16px rgba(240,192,64,0.7);
+    letter-spacing: 3px;
+  }
+  .subtitle { color: #a08060; font-size: 8px; margin-top: 6px; }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .daily-task {
+    background: rgba(42,28,10,0.9);
+    padding: 6px 10px;
+    border: var(--pixel) solid var(--orange);
+    box-shadow: 2px 2px 0 #000;
+    font-size: 8px;
+    color: var(--orange-bright);
+    cursor: pointer;
+    position: relative;
+  }
+  .daily-task:hover { background: var(--panel2); color: var(--gold); }
+  .daily-task .badge {
+    position: absolute;
+    top: -6px; right: -6px;
+    background: var(--red);
+    color: #fff;
+    width: 14px; height: 14px;
+    font-size: 7px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid #000;
+  }
+
+  /* ---- CONTENT WRAPPER ---- */
+  .content {
+    background: var(--bg);
+    padding: 12px;
+  }
+
+  /* ---- BOTTOM BANNER ---- */
+  .bottom-banner {
+    width: 100%;
+    overflow: hidden;
+  }
+  .bottom-banner img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    object-position: center bottom;
+    display: block;
+  }
+
+  /* ---- MAIN LAYOUT ---- */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 10px;
+    height: 1500px;
+  }
+
+  /* ---- TABS ---- */
+  .tabs-area {
+    grid-column: 1 / 3;
+  }
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0;
+    flex-wrap: wrap;
+  }
+  .tab {
+    background: var(--panel);
+    border: var(--pixel) solid #3a2a12;
+    border-bottom: none;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    transition: none;
+    user-select: none;
+  }
+  .tab:hover { border-color: var(--orange); color: var(--text); }
+  .tab.active {
+    background: var(--panel2);
+    border-color: var(--orange);
+    color: var(--orange-bright);
+    border-bottom-color: var(--panel2);
+    box-shadow: 0 -1px 6px rgba(232,130,12,0.2);
+  }
+  .tab .progress-dot {
+    width: 6px; height: 6px;
+    background: var(--green);
+    border: 1px solid #000;
+    display: inline-block;
+  }
+  .tab .progress-dot.warn { background: var(--orange); }
+  .tab .close-btn {
+    color: #4a3a22;
+    font-size: 8px;
+    margin-left: 2px;
+    cursor: pointer;
+  }
+  .tab .close-btn:hover { color: var(--red); }
+  .tab-add {
+    background: transparent;
+    border: var(--pixel) dashed #3a2a12;
+    border-bottom: none;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 10px;
+    color: #4a3a22;
+  }
+  .tab-add:hover { color: var(--orange); border-color: var(--orange); }
+
+  /* folder tab */
+  .tab.folder::before {
+    content: '▶';
+    font-size: 6px;
+    color: var(--gold);
+  }
+  .tab.folder.open::before { content: '▼'; }
+
+  /* ---- INPUT PANEL ---- */
+  .input-panel {
+    background: var(--panel);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+  .panel-label {
+    font-size: 9px;
+    color: var(--orange-bright);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    text-shadow: 0 0 8px rgba(232,130,12,0.5);
+  }
+  textarea {
+    background: rgba(6, 4, 1, 0.75);
+    border: var(--pixel) solid #4a3018;
+    color: #f0e0b0;
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Press Start 2P', monospace;
+    font-size: 13px;
+    padding: 10px;
+    resize: none;
+    width: 100%;
+    line-height: 1.8;
+    flex: 1;
+    overflow-y: scroll;
+    height: 0;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--orange);
+    box-shadow: 0 0 10px rgba(232,130,12,0.25);
+  }
+  textarea::placeholder { color: #5a4020; }
+
+  /* ---- OUTPUT PANEL ---- */
+  .output-panel {
+    background: var(--panel);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+  .output-box {
+    background: rgba(6, 4, 1, 0.75);
+    border: var(--pixel) solid #4a3018;
+    padding: 12px;
+    flex: 1;
+    overflow-y: scroll;
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Press Start 2P', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #b8e090;
+    height: 0;
+  }
+  .output-box .placeholder { color: #5a4020; }
+  .output-box .ai-line { color: #c0e8a0; margin: 0; }
+  .output-box .section-title {
+    color: var(--orange-bright);
+    margin: 8px 0 3px 0;
+    font-size: 10px;
+    text-shadow: 0 0 8px rgba(255,154,32,0.5);
+  }
+
+  /* ---- GENERATE BUTTON ---- */
+  .gen-btn {
+    background: var(--orange);
+    color: #000;
+    border: var(--pixel) solid #000;
+    box-shadow: 3px 3px 0 #000, 0 0 12px rgba(232,130,12,0.3);
+    padding: 10px 20px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: none;
+    align-self: flex-start;
+  }
+  .gen-btn:hover {
+    background: var(--orange-bright);
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0 #000;
+  }
+  .gen-btn:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 #000;
+  }
+  .gen-btn.loading {
+    background: #5a3a0a;
+    color: #7a5a2a;
+    cursor: not-allowed;
+    animation: blink 0.5s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.5; } }
+
+  .save-btn {
+    background: var(--panel2);
+    color: var(--text-dim);
+    border: var(--pixel) solid #3a2a12;
+    box-shadow: 2px 2px 0 #000;
+    padding: 4px 8px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    cursor: pointer;
+  }
+  .save-btn:hover { border-color: var(--orange); color: var(--orange-bright); }
+
+  /* ---- KNOWLEDGE BASE ---- */
+  .kb-area {
+    grid-column: 1 / 3;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .kb-card {
+    background: var(--panel);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 180px;
+  }
+  .kb-title {
+    color: var(--orange-bright);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-shadow: 0 0 6px rgba(255,154,32,0.3);
+  }
+  .kb-count { color: var(--text-dim); font-size: 7px; }
+  .kb-list {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 10px;
+    color: #8a7a5a;
+    line-height: 2;
+    font-family: 'Noto Sans SC', 'PingFang SC', monospace;
+  }
+  .kb-item {
+    padding: 3px 4px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .kb-item:hover { border-left-color: var(--orange); color: var(--text); }
+  .kb-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kb-item-del { color: #4a3a22; font-size: 8px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+  .kb-item-del:hover { color: var(--red); }
+  .kb-empty { color: #3a2a10; font-size: 7px; }
+  .kb-label { cursor: pointer; }
+  .kb-label:hover { color: var(--gold); }
+
+  /* ---- KB SUBPAGE ---- */
+  .kb-subpage {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .kb-subpage.show { display: flex; }
+  .kb-subpage-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .kb-back-btn {
+    background: transparent;
+    border: var(--pixel) solid var(--orange);
+    color: var(--orange-bright);
+    padding: 6px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 10px;
+  }
+  .kb-back-btn:hover { background: var(--panel2); }
+  .kb-subpage-title { color: var(--gold); font-size: 14px; flex: 1; }
+  .kb-subpage-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .kb-entry {
+    background: var(--panel);
+    border: var(--pixel) solid #3a2a12;
+    padding: 0;
+    overflow: hidden;
+  }
+  .kb-entry-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #2a1c0a;
+  }
+  .kb-entry-header:hover { background: var(--panel2); }
+  .kb-entry-name { color: var(--orange-bright); font-size: 10px; flex: 1; }
+  .kb-entry-actions { display: flex; gap: 8px; align-items: center; }
+  .kb-entry-toggle { color: var(--text-dim); font-size: 9px; }
+  .kb-entry-del-btn {
+    background: transparent;
+    border: 1px solid #4a3a22;
+    color: #6a4a2a;
+    padding: 2px 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 8px;
+  }
+  .kb-entry-del-btn:hover { border-color: var(--red); color: var(--red); }
+  .kb-entry-content {
+    display: none;
+    padding: 12px;
+    color: var(--text);
+    font-size: 9px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 400px;
+    overflow-y: auto;
+    background: #0f0a04;
+  }
+  .kb-entry-content.open { display: block; }
+  .kb-subpage-add {
+    background: var(--panel2);
+    border: var(--pixel) dashed var(--orange);
+    color: var(--orange);
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 9px;
+    margin-top: 4px;
+  }
+  .kb-subpage-add:hover { background: var(--panel); color: var(--gold); }
+
+  /* ---- PROGRESS BAR ---- */
+  .progress-area {
+    margin-top: 4px;
+  }
+  .progress-label { font-size: 7px; color: var(--text-dim); margin-bottom: 4px; }
+  .progress-stages {
+    display: flex;
+    gap: 2px;
+  }
+  .stage {
+    flex: 1;
+    height: 10px;
+    background: #1a0e04;
+    border: 1px solid #2a1c0a;
+    position: relative;
+    cursor: pointer;
+  }
+  .stage:hover { border-color: var(--orange); }
+  .stage.done { background: #4a7a20; border-color: #000; }
+  .stage.current { background: var(--orange); border-color: #000; animation: stagePulse 1s steps(2) infinite; box-shadow: 0 0 6px rgba(232,130,12,0.6); }
+  @keyframes stagePulse { 50% { opacity: 0.7; } }
+  .stage-tooltip {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0a0700;
+    border: 1px solid var(--orange);
+    padding: 3px 6px;
+    font-size: 6px;
+    color: var(--orange-bright);
+    white-space: nowrap;
+    display: none;
+    z-index: 10;
+  }
+  .stage:hover .stage-tooltip { display: block; }
+
+  /* ---- DAILY MODAL ---- */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: rgba(22, 14, 6, 0.96);
+    border: var(--pixel) solid var(--orange);
+    box-shadow: 4px 4px 0 #000, 0 0 20px rgba(232,130,12,0.15);
+    padding: 20px;
+    width: 380px;
+    max-width: 90vw;
+  }
+  .modal-title { color: var(--orange-bright); font-size: 11px; margin-bottom: 14px; text-shadow: 0 0 8px rgba(255,154,32,0.4); }
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #2a1c0a;
+    font-size: 8px;
+    cursor: pointer;
+  }
+  .task-item:hover { color: var(--orange-bright); }
+  .task-check {
+    width: 12px; height: 12px;
+    border: var(--pixel) solid #3a2a12;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+    flex-shrink: 0;
+  }
+  .task-check.done { border-color: var(--green); color: var(--green); }
+  .task-stage { color: var(--text-dim); font-size: 7px; }
+  .modal-close {
+    margin-top: 14px;
+    background: transparent;
+    border: var(--pixel) solid var(--orange);
+    color: var(--orange);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .modal-close:hover { background: var(--orange); color: #000; }
+  .settings-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .settings-label { font-size: 7px; color: var(--text-dim); width: 56px; flex-shrink: 0; }
+  .settings-input { flex: 1; background: #0a0700; border: 2px solid #3a2a12; color: var(--text); font-family: 'Press Start 2P', monospace; font-size: 8px; padding: 7px 8px; }
+  .settings-input:focus { outline: none; border-color: var(--orange); }
+  select.settings-input option { background: #1c1208; }
+
+  /* ---- WIN OVERLAY ---- */
+  .win-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .win-overlay.show { display: flex; }
+  .win-coins {
+    font-size: 48px;
+    animation: coinBounce 0.3s steps(2) infinite alternate;
+    filter: drop-shadow(0 0 12px rgba(240,192,64,0.8));
+  }
+  @keyframes coinBounce { to { transform: translateY(-10px); } }
+  .win-text { color: var(--gold); font-size: 16px; text-shadow: 3px 3px 0 #000, 0 0 16px rgba(240,192,64,0.5); text-align: center; line-height: 2.2; }
+  .win-close {
+    background: var(--orange); color: #000;
+    border: var(--pixel) solid #000; box-shadow: 3px 3px 0 #000, 0 0 12px rgba(232,130,12,0.4);
+    padding: 10px 20px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px; cursor: pointer; margin-top: 10px;
+  }
+  .win-close:hover { background: var(--gold); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #1a1008; border-left: 1px solid #3a2a12; }
+  ::-webkit-scrollbar-thumb { background: var(--orange); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+  /* force classic (non-overlay) scrollbar on output box */
+  #outputBox {
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange) #1a1008;
+    scrollbar-gutter: stable;
+  }
+  #outputBox::-webkit-scrollbar { width: 8px; }
+  #outputBox::-webkit-scrollbar-track { background: #1a1008; }
+  #outputBox::-webkit-scrollbar-thumb { background: var(--orange); border-radius: 2px; min-height: 40px; }
+</style>
+</head>
+<body>
+
+<!-- WIN OVERLAY -->
+<div class="win-overlay" id="winOverlay">
+  <div class="win-coins">🪙🪙🪙</div>
+  <div class="win-text">目标击破！<br>宝藏到手！<br>+100 金币</div>
+  <button class="win-close" onclick="closeWin()">继续狩猎 ▶</button>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal px-box">
+    <div class="modal-title">⚙ 设置</div>
+    <div class="settings-row">
+      <div class="settings-label">服务商</div>
+      <select id="providerSelect" class="settings-input" onchange="onProviderChange()">
+        <option value="claude">Claude (pumpkinai)</option>
+        <option value="qwen">通义千问 (阿里云)</option>
+        <option value="custom">自定义</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">API Key</div>
+      <input id="apiKeyInput" type="password" placeholder="sk-..." class="settings-input">
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">Base URL</div>
+      <input id="baseUrlInput" type="text" placeholder="https://..." class="settings-input">
+    </div>
+    <div class="settings-row">
+      <div class="settings-label">模型</div>
+      <input id="modelInput" type="text" placeholder="claude-sonnet-4-6" class="settings-input">
+    </div>
+    <div id="settingsStatus" style="font-size:8px;color:var(--green);min-height:14px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="modal-close" onclick="saveSettings()">保存</button>
+      <button class="modal-close" onclick="testConnection()" style="border-color:var(--green);color:var(--green)">测试连接</button>
+      <button class="modal-close" onclick="closeSettings()" style="border-color:#555;color:#555">取消</button>
+    </div>
+    <div style="border-top:1px solid #3a2a12;padding-top:14px;margin-top:4px">
+      <div style="font-size:8px;color:var(--orange-bright);margin-bottom:10px;letter-spacing:1px">☁ 云端同步（GitHub Gist）</div>
+      <div class="settings-row">
+        <div class="settings-label">GitHub Token</div>
+        <input id="gistTokenInput" type="password" placeholder="ghp_..." class="settings-input">
+      </div>
+      <div id="gistStatus" style="font-size:8px;color:var(--text-dim);min-height:14px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="modal-close" onclick="uploadToGist()" style="border-color:var(--gold);color:var(--gold)">☁ 上传到云端</button>
+        <button class="modal-close" onclick="loadFromGist()" style="border-color:#4a8a4a;color:#7ecf5a">⬇ 从云端恢复</button>
+      </div>
+      <div style="font-size:7px;color:#4a3a22;margin-top:8px">Token 获取：GitHub → Settings → Developer settings → Personal access tokens → 勾选 gist 权限</div>
+    </div>
+  </div>
+</div>
+
+<!-- DAILY MODAL -->
+<div class="modal-overlay" id="dailyModal">
+  <div class="modal px-box">
+    <div class="modal-title">⚔ 今日任务</div>
+    <div id="taskList"></div>
+    <button class="modal-close" onclick="closeDaily()">关闭</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <img class="banner-img" src="ChatGPT Image 2026年3月22日 12_01_28.png" alt="Gold Hunter Banner" onerror="this.style.display='none'">
+  <div class="banner-overlay">
+    <div class="banner-text">
+      <div class="logo-coin">🪙</div>
+      <div>
+        <div class="title">金币猎人</div>
+        <div class="subtitle">CLOSING THE DEAL · SALES ASSISTANT v0.1</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="daily-task" onclick="openSettings()" style="font-size:12px;padding:6px 10px">⚙</div>
+      <div class="daily-task" onclick="openDaily()">
+        ⚔ 今日任务
+        <div class="badge" id="taskBadge">2</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- CONTENT WRAPPER -->
+<div class="content">
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TABS -->
+  <div class="tabs-area">
+    <div class="tab-bar" id="tabBar">
+      <!-- tabs rendered by JS -->
+    </div>
+  </div>
+
+  <!-- INPUT -->
+  <div class="input-panel px-box">
+    <div class="panel-label">📜 情报输入</div>
+
+    <!-- progress bar shown when tab is a customer -->
+    <div class="progress-area" id="progressArea">
+      <div class="progress-label" id="progressLabel">客户进度：</div>
+      <div class="progress-stages" id="progressStages"></div>
+    </div>
+
+    <textarea id="inputBox" placeholder="把聊天记录、话术、教程... 直接粘贴进来&#10;&#10;例：&#10;[客户] 你好，想了解一下你的课程&#10;[我] 你好！你现在主要想解决什么问题？&#10;[客户] 想靠播客赚钱但不知道怎么起步" rows="10"></textarea>
+    <button class="gen-btn px-box" id="genBtn" onclick="generate()">▶ 出击</button>
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="output-panel px-box">
+    <div class="panel-label">⚔ 战术指令</div>
+    <div class="output-box" id="outputBox">
+      <span class="placeholder">点击「出击」，AI 将根据情报给出战术指令...</span>
+    </div>
+  </div>
+
+  <!-- KNOWLEDGE BASE -->
+  <div class="kb-area">
+    <div class="kb-card px-box">
+      <div class="kb-title"><span class="kb-label" onclick="openKBPage('product')">🗡 武器库</span> <span class="kb-count" id="productCount">0 条</span><button class="save-btn" onclick="saveTo('product')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="productList"><div class="kb-empty">点击「武器库」查看内容</div></div>
+    </div>
+    <div class="kb-card px-box">
+      <div class="kb-title"><span class="kb-label" onclick="openKBPage('script')">📜 技能书</span> <span class="kb-count" id="scriptCount">0 条</span><button class="save-btn" onclick="saveTo('script')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="scriptList"><div class="kb-empty">点击「技能书」查看内容</div></div>
+    </div>
+    <div class="kb-card px-box">
+      <div class="kb-title"><span class="kb-label" onclick="openKBPage('tutorial')">📖 秘籍</span> <span class="kb-count" id="tutorialCount">0 条</span><button class="save-btn" onclick="saveTo('tutorial')">⬆ 存入宝库</button></div>
+      <div class="kb-list" id="tutorialList"><div class="kb-empty">点击「秘籍」查看内容</div></div>
+    </div>
+  </div>
+
+</div>
+</div><!-- end content -->
+
+<!-- KB SUBPAGE -->
+<div class="kb-subpage" id="kbSubpage">
+  <div class="kb-subpage-header">
+    <button class="kb-back-btn" onclick="closeKBPage()">← 返回</button>
+    <div class="kb-subpage-title" id="kbSubpageTitle"></div>
+    <button class="save-btn" id="kbSubpageSaveBtn">⬆ 存入宝库</button>
+  </div>
+  <div class="kb-subpage-body" id="kbSubpageBody"></div>
+</div>
+
+<!-- BOTTOM BANNER -->
+<div class="bottom-banner">
+  <img src="ChatGPT Image 2026年3月22日 12_01_28.png" alt="搞钱搞流量">
+</div>
+
+<script>
+// ---- CONFIG ----
+const PROVIDERS = {
+  claude: {
+    name: 'Claude (pumpkinai)',
+    base: 'https://new.pumpkinai.vip',
+    model: 'claude-sonnet-4-6',
+    format: 'anthropic'
+  },
+  qwen: {
+    name: '通义千问 (阿里云)',
+    base: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-plus',
+    format: 'openai'
+  },
+  custom: {
+    name: '自定义',
+    base: '',
+    model: '',
+    format: 'openai'
+  }
+};
+
+function getCfg() {
+  try { return JSON.parse(localStorage.getItem('gh_cfg')) || { provider: 'claude', key: '', base: '', model: '' }; }
+  catch(e) { return { provider: 'claude', key: '', base: '', model: '' }; }
+}
+function saveCfg(c) { localStorage.setItem('gh_cfg', JSON.stringify(c)); }
+
+// ---- DATA ----
+const STAGES = ['建立联系','同步信息','挖掘需求','解决顾虑','达成成交'];
+
+const DEFAULT_TABS = [
+  { id: 1, name: '客户-示例', type: 'customer', stage: 0, content: '', isFolder: false },
+];
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem('gh_tabs');
+    return saved ? JSON.parse(saved) : DEFAULT_TABS;
+  } catch(e) { return DEFAULT_TABS; }
+}
+function saveData() {
+  localStorage.setItem('gh_tabs', JSON.stringify(tabs));
+  localStorage.setItem('gh_kb', JSON.stringify(kb));
+  localStorage.setItem('gh_activeTab', activeTabId);
+}
+function loadKB() {
+  try {
+    const saved = localStorage.getItem('gh_kb');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // If all three are empty, load defaults
+      if (!parsed.product.length && !parsed.script.length && !parsed.tutorial.length) {
+        return getDefaultKB();
+      }
+      return parsed;
+    }
+    return getDefaultKB();
+  } catch(e) { return getDefaultKB(); }
+}
+
+function getDefaultKB() {
+  return {
+    product: [
+      {name:'产品全览·播客私教系列', content:'# 播客搞钱 · 产品库\n\n> 主理人：当小时 | 《搞钱搞流量》播客主理人\n> 定位：播客引流变现教练 | 全平台公域粉丝破百万 | 私域发售一小时40w\n\n## 产品地图\n免费内容 → ¥299社群 → ¥499剪辑营/¥888咨询 → ¥5200私教(1年) → 终身社群\n\n## 产品一：播客变现私教 ¥5200\n一年陪跑+终身社群。不限次1v1+专属档案+圆桌社群+训练营复训+线下聚会+分销权益。\n适合：医美/保险/金融/玄学/留学/情感/加盟等被限流或产品复杂的老板。\n\n## 产品二：播客剪辑营 ¥499\n21天从0到1接单，完成作业返现100元，适合副业小白/大学生/职场人。\n\n## 产品三：年度社群 ¥299\n每月8号1v1直播连线，可抵扣升级其他产品。\n\n## 产品四：私密咨询 ¥888/次\n单次商业路径梳理，可抵扣私教。\n\n## 选品参考\n没方向想副业 → 社群→剪辑营\n有业务想引流 → 咨询→私教\n转介绍来的 → 直推私教或咨询转化\n明确学剪辑 → 剪辑营'},
+      {name:'武器卡·播客变现私教 ¥5200', content:'# 播客变现私教 ¥5200/年\n\n## 核心卖点（可直接说出口）\n① 每天只要14块，比一杯咖啡便宜，但带来的可能是整条收入曲线的改变\n② 一个精准播客能带来的客户，远比你刷朋友圈、发朋友圈带来的多\n③ 不是教你剪视频，是帮你建一套用声音持续赚钱的系统\n\n## 包含内容\n- 不限次1v1深度辅导\n- 专属档案+复盘记录\n- 圆桌社群（同频老板圈）\n- 训练营随时复训\n- 线下聚会\n- 分销权益\n\n## 最适合的客户\n- 有业务/产品，想用播客引流\n- 被平台限流，需要公域突破口\n- 行业：医美/保险/金融/玄学/留学/情感/加盟\n- 月收入1万以上，有付费学习习惯\n\n## 常见顾虑 & 破解\n「太贵了」→ 每天14块，一个客户的价值？\n「没时间」→ 我们帮你规划，每周录1期也能跑起来\n「我不会说话」→ 正因为不会才需要教，我们从选题开始手把手'},
+      {name:'武器卡·播客剪辑营 ¥499', content:'# 播客剪辑营 ¥499/21天\n\n## 核心卖点\n① 21天从0到1，完成作业返现100元，实际只花399\n② 学完能接单，有具体变现路径，不是学完就完了\n③ 适合想多一条收入线的人，零基础也行\n\n## 包含内容\n- 21天系统剪辑课\n- 作业完成返现100元\n- 结业证书\n- 学员群终身留存\n\n## 最适合的客户\n- 副业小白，想学一个可变现技能\n- 大学生，想在校就有收入\n- 职场人，想下班后有额外收入\n\n## 选品逻辑\n客户说「没方向想副业」→ 先推社群¥299试水，再推剪辑营\n客户说「想学剪辑接单」→ 直接推剪辑营\n客户预算不足推私教 → 剪辑营是好的降维入口'},
+      {name:'武器卡·年度社群 ¥299', content:'# 年度社群 ¥299/年\n\n## 核心卖点\n① 每月8号1v1直播连线，一年12次专属指导\n② ¥299可抵扣升级其他产品，买了不亏\n③ 进圈子，跟一群在做播客的人同频，信息差就是钱\n\n## 包含内容\n- 每月8号1v1直播连线\n- 社群永久留存\n- 可抵扣剪辑营/咨询/私教差价\n\n## 使用场景\n客户犹豫买私教 → 先进社群，低门槛建立关系\n客户想了解但没想好 → 社群是最好的"试用装"\n已有学员推介绍 → 299门槛低，转化率高'},
+      {name:'武器卡·私密咨询 ¥888', content:'# 私密咨询 ¥888/次\n\n## 核心卖点\n① 一次把商业路径梳理清楚，值多少钱你自己算\n② ¥888可抵扣私教，相当于提前锁定名额\n③ 不是聊天，是输出一份专属行动方案\n\n## 包含内容\n- 1小时深度商业路径梳理\n- 专属行动方案文档\n- 可抵扣私教差价¥888\n\n## 使用场景\n客户有意向但没想清楚要做什么 → 咨询帮他想清楚，自然转化私教\n客户觉得私教太贵 → 先咨询，让他先尝到甜头\n客户是老板/高收入 → 直接推咨询，显专业'}
+    ],
+    script: [
+      {name:'话术·1️⃣建立连接同步信息', content:'# 建立连接 · 同步信息话术\n\n> 目标：让对方对你感兴趣，主动问你在做什么\n\n## 开场钩子\n「你好，我是当小时，做播客变现教练的，很高兴认识你～」\n「看到你朋友圈在做[业务]，我做了5年播客，聊过很多做这行的，好奇你现在主要用什么方式获客？」\n「你好！你是怎么知道我的？」（简单，但好用，让对方先说）\n\n## 同步信息（了解对方）\n「你现在主要做什么方向的内容？」\n「你的客户主要从哪里来？」\n「你有没有在做公域内容？小红书/抖音/播客这些？」\n「你是自己在做，还是有团队？」\n「你现在每个月大概能成交多少单？」\n\n## 同步信息（说明自己）\n「我专门帮[行业]老板用播客做引流，不用拍脸不用剪辑，一期节目能带几十个精准客户过来。」\n「我有个学员做医美的，两位数播放量，卖出了2980的课，因为听众全是精准的。」\n「播客跟短视频不一样，它沉淀的是真正信任你的人，不是刷过去就忘了的流量。」\n\n## 建立好感\n「你做的这个方向，其实很适合播客，因为[具体原因]。」\n「我之前有个学员跟你情况很像，现在[结果]，你要听一下吗？」\n「难得遇到真的在认真做内容的人，多交流一下吧。」\n\n## 结束本轮，留钩子\n「你要不先关注一下我的播客，我最近刚出了一期讲[话题]的，跟你现在的情况很像。」\n「我发你一份资料，你看一下，有问题随时问我。」\n「你有没有微信？方便聊的话加个微信吧，比在这里聊方便。」'},
+      {name:'话术·2️⃣挖掘需求', content:'# 挖掘需求话术\n\n> 目标：让客户自己说出痛点，你再对症下药\n\n## 挖现状\n「你现在每个月获客主要靠什么渠道？」\n「你现在做内容，大概花多少时间？产出是什么感觉？」\n「你有没有觉得，你的内容发出去，但真正买单的人不多？」\n「你现在一个新客户，平均需要多少次跟进才能成交？」\n\n## 挖痛点\n「你觉得现在最大的卡点是什么？是没流量，还是有流量但转化不了？」\n「你有没有遇到过这种情况：你说了很多，但对方就是不买，不知道哪里没说到位？」\n「你有没有觉得，你的产品挺好的，但就是说不清楚为什么客户要买？」\n「如果获客这件事一直没有解决，你觉得一年后会怎样？」（极限场景）\n\n## 挖目标\n「你理想中，一个月成交多少单是你满意的？」\n「如果播客能稳定给你带来[X]个精准客户，你觉得值多少钱？」\n「你做播客，最想达到什么结果？是涨粉、成交，还是建立行业影响力？」\n\n## 挖预算意识\n「你现在在获客上，每个月大概花多少钱？」\n「你有没有在其他地方学过，大概花了多少？效果怎么样？」\n「如果有一个方法，能稳定解决你的获客问题，你愿意投入多少？」\n\n## 封闭式选项（降门槛）\n「你现在的情况，你觉得主要是A：没流量，还是B：有流量但转不了，还是C：两个都有？」\n「你想先解决哪一块？是内容方向，还是变现策略，还是两个都需要？」\n「你是已经有产品想引流，还是还在规划产品阶段？」'},
+      {name:'话术·3️⃣解决顾虑', content:'# 解决顾虑话术\n\n> 目标：消除阻力，重建价值感\n\n## 价格顾虑\n「我理解你的感受，很多学员一开始也觉得贵。你算一算，5200除以365，每天14块多。一杯奶茶都不到。」\n「你现在做一单能赚多少？只要私教帮你多做成一单，就回本了。」\n「贵不贵不是看价格，是看ROI。你付5200，如果带来了3个客户，你赚了多少？」\n「你有没有算过，你现在每个月花在无效内容上的时间值多少钱？」\n「我们有分期，可以分3个月，每月压力小很多，你要了解一下吗？」\n\n## 「我再考虑考虑」\n「可以，你具体在考虑哪里？是价格，还是不确定适不适合你？」（追问，不要放手）\n「我帮你整理一下，你现在的情况是[总结需求]，我们的方案是[方案]，顾虑是[顾虑]，你看有没有哪里我没说清楚的？」\n「你考虑的时候，有没有想过，再等3个月，你的获客情况会有什么变化？」\n\n## 「没时间学」\n「我们不是让你从头学，是帮你把现有的内容变成有效的引流工具。你每周花1小时录一期，其他的我们帮你。」\n「你现在花时间在哪里？如果有一件事能帮你省掉很多无效时间，你愿不愿意花时间了解一下？」\n\n## 「我不会说话/没有表达力」\n「正因为你觉得自己不会说话，才需要有人帮你设计选题和结构。我们从0开始，不需要你天生会表达。」\n「你跟客户谈单的时候说话流利吗？那就够了。播客就是跟一个客户说话，只是对方听不到你。」\n「我有个学员，普通话都说不标准，现在做到单期3000播放，因为他说的内容让人觉得真。」\n\n## 「效果没有保证」\n「我们不承诺数字，但我们承诺陪你走完。一年内随时1v1，做了没效果我们帮你找原因。」\n「你要不先看几个学员案例？跟你情况像的，我发你。」\n「我有个学员做[行业]，刚开始也觉得播客太慢，现在她的主要客户都是播客来的。」'},
+      {name:'话术·4️⃣最后成交', content:'# 最后成交话术\n\n> 目标：消除最后一步的阻力，推动付款\n\n## 制造稀缺感\n「我现在私教名额只剩2个，下个月可能要涨价，你这边要确定的话今天可以先锁定。」\n「这个价格是老学员内部价，对外报价是[更高价格]，你是[来源]过来的，我给你这个价格。」\n「我这个月只带3个私教学员，精力有限，你要考虑的话趁现在。」\n\n## 给出明确下一步\n「这样，你今天先付个定金把名额锁住，具体开始时间我们再约，你看可以吗？」\n「你今天方便付款吗？我发你支付二维码。」\n「你微信支付还是支付宝？我发你。」（默认对方要付，直接问方式）\n\n## 愿景钩子\n「你想象一下，半年后你的播客每个月稳定带来30个咨询，你现在还需要去各个群发广告吗？」\n「到时候你的客户都是主动来找你的，不是你去追他们，那种感觉你想要吗？」\n\n## 成交梯度（低价入口转化）\n「要不这样，你先进社群¥299，我们先聊起来，觉得合适了再说私教。¥299可以抵扣的。」\n「你先报个体验咨询¥888，我帮你把方向梳理清楚，你再决定要不要继续，¥888也是可以抵扣的。」\n\n## 隔山打牛（帮客户说服第三方）\n「如果你需要跟另一半商量，我给你整理一个说明，你直接发给他/她，让他/她看一下。」\n「你要不把我们的学员故事发给他/她，比你说更有说服力。」\n\n## 成交后锁定\n「好，我把学员欢迎手册发给你，然后我们约一下第一次1v1的时间。」\n「你加一下我的私教专属群，里面有其他学员，你可以先看一下大家在做什么。」'}
+    ],
+    tutorial: [
+      {name:'搞钱搞流量·谈单留钩子（第1课）', content:'# 核心技巧速查\n\n等价交换：每个行动指令配奖励，给予vs索取分清\n封闭式选项：挖需求给1/2/3让客户选，降门槛\n肯定需求：帮客户把模糊需求变板上钉钉\n极限场景：把日常问题拉到最坏结果，恐惧→希望\n愿景钩子："到时候…"场景印心里变心锚\n残缺效应：永远留底牌让对方来找你\n隔山打牛：给客户说服第三方的话术\n成交梯度钩子：低价成交后说可补差价升级\n可聊不交付：成交前只描述结果不给方案\n极限一换一：每客户带一新客户，生意二倍增量\n超级节点：维护链接能力强的客户\n成交进度条：所有营销动作都在推进0→100%'},
+      {name:'打法手册·按客户阶段跟进', content:'# 按客户阶段跟进手册\n\n## 🥚 孵化期（刚加微信，没需求）\n**特征**：刚认识，不知道你是干嘛的，或者知道但没需求\n**策略**：不要急着介绍产品。先发内容，让对方自己产生好奇。\n**动作**：\n- 发一篇你的播客案例文章\n- 偶尔点赞对方朋友圈，存在感要有但别打扰\n- 每3天互动一次，保持温度\n**禁忌**：一上来就发产品介绍，一上来就问要不要买\n\n## 🌱 萌芽期（有好奇，在观望）\n**特征**：主动问过你，或者对你的内容有互动\n**策略**：问一个开放问题，让他说，你听，记下核心顾虑\n**动作**：\n- 「你有没有想过做播客？」\n- 「你现在获客主要靠什么？」\n- 把他说的记下来，下次用他自己的话说给他听\n**节奏**：每2天互动一次\n\n## 🔥 热线期（有意向，需要推）\n**特征**：说过「有点兴趣」「你们价格是多少」\n**策略**：价值重塑 + 制造稀缺 + 给出明确下一步\n**动作**：\n- 用「每天14块」锚定时间成本\n- 「名额只剩2个」制造稀缺\n- 给出明确下一步：「你今天方便付款吗？」\n**节奏**：每天跟进，24h内必须回复\n\n## ❄️ 冷线期（失联或拒绝过）\n**特征**：之前聊过，突然不回，或者说「不需要」\n**策略**：不要直接推产品，发一条新动态唤醒\n**动作**：\n- 「最近有个学员做[行业]，3个月变化很大，你看吗？」\n- 发一条与他业务相关的干货，不提产品\n- 每2周一次，最多3次，3次无响应暂时放一放\n\n## 💰 成交后（维护 = 下一单）\n**特征**：已付款，进入服务阶段\n**策略**：超预期服务，转化为案例，带来转介绍\n**动作**：\n- 成交后48h内发欢迎语+学习路径图\n- 第30天主动问反馈，把好评变成案例\n- 案例放入话术库，用于下一个客户的成交'},
+      {name:'打法手册·价格异议专项', content:'# 价格异议专项手册\n\n> 听到「有点贵」不要慌，这是正常信号，说明对方在认真考虑。\n\n## 三步走框架\n**第一步：共情，不辩解**\n「我理解，第一次看到这个价格确实会停顿一下。」\n（不要说「其实不贵」，那是在否定对方的感受）\n\n**第二步：重新锚定价值**\n选一个角度，把价格拆解：\n- 时间锚：「5200除以365，每天14块」\n- ROI锚：「一个客户的价值 × 你一年带来的客户数」\n- 对比锚：「你之前在[某平台]投广告，花了多少？效果呢？」\n\n**第三步：给出低门槛入口**\n「要不先试试咨询¥888，梳理完再决定，¥888可以抵扣的。」\n「我们有分期，每月压力不大，你要了解一下吗？」\n\n## 常见变体\n「我老公/老婆要商量一下」\n→「好的，我帮你整理一个给他/她看的说明，你直接发给他/她，比你解释方便。」\n\n「等我赚到钱再来」\n→「正因为现在还没赚到，才需要一个系统的方法。等赚到了，这些问题可能还在。」\n\n「我自己研究研究看」\n→「可以，我发你一份资料。你研究的时候如果有问题，随时问我，我比资料更快。」\n\n## 成交率参考\n「每天14块」话术：成交率约68%\n「算笔账」ROI话术：成交率约54%\n「先体验课」降门槛：成交率约41%\n**建议顺序**：先降时间成本 → 再算ROI → 最后降门槛'},
+      {name:'打法手册·成交进度条解读', content:'# 成交进度条解读\n\n> 五个阶段，每个阶段有不同的目标和禁忌\n\n## 阶段一：建立链接\n**目标**：让对方记住你，对你有好感\n**判断标准**：对方主动回复你，或者问过你在做什么\n**你该做**：分享内容，建立形象，不介绍产品\n**不该做**：上来就发产品介绍\n\n## 阶段二：同步信息\n**目标**：了解对方情况，让对方了解你能做什么\n**判断标准**：你知道对方的业务、痛点、预算区间\n**你该做**：多问，少说，用封闭式问题让对方选\n**不该做**：还不了解需求就开始介绍方案\n\n## 阶段三：挖掘需求\n**目标**：让对方自己说出痛点，并且认同这个痛点需要解决\n**判断标准**：对方说过「是挺麻烦的」「确实需要解决」\n**你该做**：用极限场景放大痛点，用愿景钩子描绘未来\n**不该做**：跳过这步直接报价\n\n## 阶段四：解决顾虑\n**目标**：消除所有让对方不付款的理由\n**判断标准**：对方的顾虑你都有回应，没有新顾虑冒出来\n**你该做**：主动问「还有没有其他考虑的」，把顾虑一个个处理掉\n**不该做**：顾虑没处理完就催付款\n\n## 阶段五：达成成交\n**目标**：拿到付款\n**判断标准**：对方说了「好的」「可以」「怎么付」\n**你该做**：给出明确的下一步，不要给对方再想的机会\n**不该做**：对方说「好」了还在继续解释产品，画蛇添足'}
+    ]
+  };
+}
+
+let tabs = loadData();
+let activeTabId = parseInt(localStorage.getItem('gh_activeTab')) || tabs[0]?.id;
+let folderOpen = {};
+let kb = loadKB();
+let outputContent = '';
+
+// ---- TABS ----
+function renderTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+
+  tabs.forEach(tab => {
+    if (tab.isFolder) {
+      const el = makeTabEl(tab, true);
+      bar.appendChild(el);
+      if (folderOpen[tab.id]) {
+        tab.children.forEach(child => {
+          const cel = makeTabEl(child, false, true);
+          bar.appendChild(cel);
+        });
+      }
+    } else {
+      bar.appendChild(makeTabEl(tab, false));
+    }
+  });
+
+  const addBtn = document.createElement('div');
+  addBtn.className = 'tab tab-add';
+  addBtn.textContent = '+';
+  addBtn.onclick = addTab;
+  bar.appendChild(addBtn);
+
+  renderProgress();
+}
+
+function makeTabEl(tab, isFolder, isChild = false) {
+  const el = document.createElement('div');
+  const isActive = tab.id === activeTabId;
+  el.className = `tab${isActive ? ' active' : ''}${isFolder ? ' folder' : ''}${isFolder && folderOpen[tab.id] ? ' open' : ''}${isChild ? '' : ''}`;
+  if (isChild) el.style.marginLeft = '12px';
+
+  if (tab.type === 'customer' && tab.stage >= 0) {
+    const dot = document.createElement('span');
+    dot.className = `progress-dot${tab.stage >= 3 ? ' warn' : ''}`;
+    el.appendChild(dot);
+  }
+
+  const nameSpan = document.createElement('span');
+  nameSpan.textContent = tab.name;
+  nameSpan.ondblclick = (e) => {
+    e.stopPropagation();
+    const newName = prompt('修改标签名称：', tab.name);
+    if (newName && newName.trim()) {
+      tab.name = newName.trim();
+      saveData();
+      renderTabs();
+    }
+  };
+  el.appendChild(nameSpan);
+
+  const closeSpan = document.createElement('span');
+  closeSpan.className = 'close-btn';
+  closeSpan.textContent = '✕';
+  closeSpan.onclick = (e) => { e.stopPropagation(); removeTab(tab.id); };
+  el.appendChild(closeSpan);
+
+  el.onclick = () => {
+    if (isFolder) {
+      folderOpen[tab.id] = !folderOpen[tab.id];
+    } else {
+      // save current input+output before switching
+      const cur = getActiveTab();
+      if (cur) {
+        cur.content = document.getElementById('inputBox').value;
+        cur.output = outputContent;
+      }
+      activeTabId = tab.id;
+      // load new tab content
+      const next = getActiveTab();
+      document.getElementById('inputBox').value = next?.content || '';
+      outputContent = next?.output || '';
+      const box = document.getElementById('outputBox');
+      if (outputContent) {
+        box.innerHTML = '';
+        outputContent.split('\n').forEach(line => {
+          if (!line.trim()) { box.appendChild(document.createElement('br')); return; }
+          const el = document.createElement('div');
+          if (line.startsWith('##')) { el.className = 'section-title'; el.textContent = line.replace(/^##\s*/, ''); }
+          else { el.className = 'ai-line'; el.textContent = line; }
+          box.appendChild(el);
+        });
+      } else {
+        box.innerHTML = '<span class="placeholder">点击「出击」，AI 将根据情报给出战术指令...</span>';
+      }
+      saveData();
+    }
+    renderTabs();
+  };
+  return el;
+}
+
+function addTab() {
+  const name = prompt('标签名称（例：客户-张三）') || `标签${tabs.length + 1}`;
+  const isCustomer = name.startsWith('客户');
+  tabs.push({ id: Date.now(), name, type: isCustomer ? 'customer' : 'note', stage: isCustomer ? 0 : -1, content: '', isFolder: false });
+  activeTabId = tabs[tabs.length - 1].id;
+  document.getElementById('inputBox').value = '';
+  saveData();
+  renderTabs();
+}
+
+function removeTab(id) {
+  tabs = tabs.filter(t => t.id !== id && !(t.children && t.children.find(c => c.id === id)));
+  tabs.forEach(t => { if (t.children) t.children = t.children.filter(c => c.id !== id); });
+  if (activeTabId === id) {
+    activeTabId = tabs[0]?.id || null;
+    document.getElementById('inputBox').value = getActiveTab()?.content || '';
+  }
+  saveData();
+  renderTabs();
+}
+
+function getActiveTab() {
+  for (const t of tabs) {
+    if (t.id === activeTabId) return t;
+    if (t.children) { const c = t.children.find(c => c.id === activeTabId); if (c) return c; }
+  }
+  return null;
+}
+
+// ---- PROGRESS ----
+function renderProgress() {
+  const tab = getActiveTab();
+  const area = document.getElementById('progressArea');
+  const stagesEl = document.getElementById('progressStages');
+  const labelEl = document.getElementById('progressLabel');
+
+  if (!tab || tab.type !== 'customer') {
+    area.style.display = 'none';
+    return;
+  }
+  area.style.display = 'block';
+  labelEl.textContent = `客户进度：${STAGES[tab.stage] || '—'}`;
+  stagesEl.innerHTML = '';
+  STAGES.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = `stage${i < tab.stage ? ' done' : i === tab.stage ? ' current' : ''}`;
+    el.innerHTML = `<div class="stage-tooltip">${s}</div>`;
+    el.onclick = () => {
+      tab.stage = i;
+      saveData();
+      if (i === 4) showWin();
+      renderTabs();
+    };
+    stagesEl.appendChild(el);
+  });
+}
+
+// ---- GENERATE ----
+async function generate() {
+  const input = document.getElementById('inputBox').value.trim();
+  if (!input) { alert('请先输入情报'); return; }
+
+  const cfg = getCfg();
+  if (!cfg.key) { openSettings(); return; }
+
+  const tab = getActiveTab();
+  if (tab) { tab.content = input; saveData(); }
+
+  const btn = document.getElementById('genBtn');
+  btn.classList.add('loading');
+  btn.textContent = '▶ 出击中...';
+
+  const box = document.getElementById('outputBox');
+  box.innerHTML = '';
+  outputContent = '';
+  _lineBuffer = '';
+
+  const stageHint = tab?.type === 'customer' ? `\n当前客户销售阶段：${STAGES[tab.stage]}（${tab.stage + 1}/5）` : '';
+  const systemPrompt = `你是「金币猎人」销售助手，专门帮助销售人员应对客户对话、挑选话术、优化表达。
+
+## 你的产品
+播客私教课（帮助学员从零开始做播客，实现引流变现）。主理人：当小时，《搞钱搞流量》播客主理人，全平台公域粉丝破百万，私域发售一小时40w。
+
+## 销售人员风格
+- 亲切口语化，习惯称客户为"宝"或"宝子"
+- 善用真实案例建立信任（如：我有个学员做美业，两位数播放就卖出2980的产品）
+- 会用紧迫感推动决策（如：今天最后一天/涨价前）
+- 不强推，先共情、再挖需求、再给方案
+
+## 销售阶段（靠谱成交五步法）
+1. 建立连接同步信息——初次接触，了解客户背景，建立信任
+2. 挖掘需求——找到客户痛点，激发对播客的兴趣
+3. 解决顾虑——回应价格/时间/效果等疑虑
+4. 最后成交——给出临门一脚，推动付款${stageHint}
+
+## 客户类型
+- 学生小白：没收入/刚起步，在乎学到什么、能不能赚到钱
+- 在职副业：有工作，时间有限，在乎投入产出比
+- 转介绍：朋友推荐来的，信任基础高，在乎具体权益
+- 公域：从抖音/小红书/视频号来的，在乎差异化和竞争优势
+- 自由职业：已有一技之长，在乎如何用播客放大已有优势
+- 个人成长：想提升自己，在乎知识和社群价值
+
+## 核心销售技巧（搞钱搞流量方法论）
+- 等价交换：每个行动指令配备奖励，给予vs索取要分清
+- 封闭式选项：挖需求给1/2/3让客户选，降低门槛
+- 肯定需求：帮客户把模糊需求变成板上钉钉
+- 极限场景：把日常问题拉到最坏结果，恐惧被惊动希望才出场
+- 愿景钩子：描绘"到时候"的具体场景，种草进心里变成心锚
+- 残缺效应：永远留一个底牌让对方主动来找你
+- 成交梯度钩子：低价成交后告知可补差价升级，埋下高价单伏笔
+- 可聊不交付：成交前只描述结果，不交付具体方案
+
+${buildKBContext()}
+
+## 输出格式
+- 先说「📍 当前阶段」和「📌 客户类型判断」
+- 推荐话术时给2-3条候选，说明各自适合的情境
+- 改写话术时直接输出改写版本，附一句说明
+- 用##标注板块标题；内容简洁口语化；如果是聊天记录必须给出下一句具体话术
+- 风格像游戏攻略一样直接，不废话`;
+
+  try {
+    await streamAI(cfg, input, systemPrompt, (chunk) => {
+      outputContent += chunk;
+      renderStreamChunk(box, chunk);
+    });
+    const cur = getActiveTab();
+    if (cur) { cur.output = outputContent; saveData(); }
+  } catch(e) {
+    const msg = e.name === 'AbortError' ? '请求超时，请重试' : e.message;
+    box.innerHTML = `<span style="color:var(--red)">出击失败：${msg}</span>`;
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = '▶ 出击';
+  }
+}
+
+// ---- STREAM RENDER ----
+let _lineBuffer = '';
+function renderStreamChunk(box, chunk) {
+  _lineBuffer += chunk;
+  const lines = _lineBuffer.split('\n');
+  _lineBuffer = lines.pop(); // keep incomplete last line
+
+  lines.forEach(line => {
+    if (!line.trim()) { box.appendChild(document.createElement('br')); return; }
+    const el = document.createElement('div');
+    if (line.startsWith('##')) {
+      el.className = 'section-title';
+      el.textContent = line.replace(/^##\s*/, '');
+    } else {
+      el.className = 'ai-line';
+      el.textContent = line;
+    }
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  });
+
+  // update last partial line
+  if (_lineBuffer) {
+    let last = box.querySelector('.stream-cursor');
+    if (!last) { last = document.createElement('div'); last.className = 'ai-line stream-cursor'; box.appendChild(last); }
+    last.textContent = _lineBuffer;
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+// ---- API CALL (streaming) ----
+async function streamAI(cfg, userMsg, systemPrompt, onChunk) {
+  const provider = PROVIDERS[cfg.provider] || PROVIDERS.custom;
+  const format = provider.format;
+  const base = cfg.base || provider.base;
+  const model = cfg.model || provider.model;
+  const key = cfg.key;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
+  let url, headers, body;
+
+  if (format === 'anthropic') {
+    url = `${base}/v1/messages`;
+    headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    };
+    body = { model, max_tokens: 1024, stream: true, system: systemPrompt, messages: [{ role: 'user', content: userMsg }] };
+  } else {
+    url = `${base}/chat/completions`;
+    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` };
+    body = { model, max_tokens: 1024, stream: true, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }] };
+  }
+
+  const res = await fetch(url, { method: 'POST', signal: controller.signal, headers, body: JSON.stringify(body) });
+  clearTimeout(timeout);
+
+  if (!res.ok) { const err = await res.text(); throw new Error(`API错误 ${res.status}: ${err.slice(0,200)}`); }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const text = decoder.decode(value);
+    const lines = text.split('\n');
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') return;
+      try {
+        const json = JSON.parse(data);
+        let chunk = '';
+        if (format === 'anthropic') {
+          chunk = json.delta?.text || '';
+        } else {
+          chunk = json.choices?.[0]?.delta?.content || '';
+        }
+        if (chunk) onChunk(chunk);
+      } catch(e) {}
+    }
+  }
+}
+
+// ---- NON-STREAMING FALLBACK ----
+async function callAI(cfg, userMsg, systemPrompt) {
+  const provider = PROVIDERS[cfg.provider] || PROVIDERS.custom;
+  const format = provider.format;
+  const base = cfg.base || provider.base;
+  const model = cfg.model || provider.model;
+
+  let url, headers, body;
+  if (format === 'anthropic') {
+    url = `${base}/v1/messages`;
+    headers = { 'Content-Type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+    body = { model, max_tokens: 50, system: systemPrompt, messages: [{ role: 'user', content: userMsg }] };
+  } else {
+    url = `${base}/chat/completions`;
+    headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.key}` };
+    body = { model, max_tokens: 50, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }] };
+  }
+
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`${res.status}`);
+  const data = await res.json();
+  return data.content?.[0]?.text || data.choices?.[0]?.message?.content || '';
+}
+
+function buildKBContext() {
+  const parts = [];
+  const tab = getActiveTab();
+  const stageName = tab?.type === 'customer' ? STAGES[tab.stage] : null;
+
+  if (kb.product.length) {
+    parts.push(`【产品库】\n${kb.product.map(i => i.name + '：' + i.content).join('\n')}`);
+  }
+
+  if (kb.script.length) {
+    // Only inject scripts matching current stage; if no stage match, inject all
+    const stageScripts = stageName
+      ? kb.script.filter(i => i.name.includes(stageName))
+      : kb.script;
+    const scripts = stageScripts.length ? stageScripts : kb.script;
+    parts.push(`【话术库${stageName ? '·' + stageName : ''}】\n${scripts.map(i => i.name + '：' + i.content).join('\n')}`);
+  }
+
+  if (kb.tutorial.length) {
+    parts.push(`【教程库】\n${kb.tutorial.map(i => i.name + '：' + i.content).join('\n')}`);
+  }
+
+  return parts.length ? '\n\n---知识库---\n' + parts.join('\n\n') : '';
+}
+
+// ---- SETTINGS ----
+function openSettings() {
+  const cfg = getCfg();
+  const p = PROVIDERS[cfg.provider] || PROVIDERS.claude;
+  document.getElementById('providerSelect').value = cfg.provider || 'claude';
+  document.getElementById('apiKeyInput').value = cfg.key || '';
+  document.getElementById('baseUrlInput').value = cfg.base || p.base;
+  document.getElementById('modelInput').value = cfg.model || p.model;
+  document.getElementById('settingsStatus').textContent = '';
+  document.getElementById('gistTokenInput').value = localStorage.getItem('gh_gist_token') || '';
+  document.getElementById('gistStatus').textContent = localStorage.getItem('gh_gist_id') ? '✓ 已绑定 Gist，可直接上传/恢复' : '尚未同步过';
+  document.getElementById('settingsModal').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('show');
+}
+function onProviderChange() {
+  const p = PROVIDERS[document.getElementById('providerSelect').value];
+  if (p && p.base) document.getElementById('baseUrlInput').value = p.base;
+  if (p && p.model) document.getElementById('modelInput').value = p.model;
+}
+function saveSettings() {
+  const cfg = {
+    provider: document.getElementById('providerSelect').value,
+    key: document.getElementById('apiKeyInput').value.trim(),
+    base: document.getElementById('baseUrlInput').value.trim(),
+    model: document.getElementById('modelInput').value.trim()
+  };
+  saveCfg(cfg);
+  const token = document.getElementById('gistTokenInput').value.trim();
+  if (token) localStorage.setItem('gh_gist_token', token);
+  closeSettings();
+}
+async function testConnection() {
+  const cfg = {
+    provider: document.getElementById('providerSelect').value,
+    key: document.getElementById('apiKeyInput').value.trim(),
+    base: document.getElementById('baseUrlInput').value.trim(),
+    model: document.getElementById('modelInput').value.trim()
+  };
+  const status = document.getElementById('settingsStatus');
+  status.style.color = 'var(--gold)';
+  status.textContent = '测试中...';
+  try {
+    const result = await callAI(cfg, '你好，回复"连接成功"三个字', '');
+    status.style.color = 'var(--green)';
+    status.textContent = '✓ 连接成功！模型：' + cfg.model;
+  } catch(e) {
+    status.style.color = 'var(--red)';
+    status.textContent = '✗ ' + e.message.slice(0, 60);
+  }
+}
+
+// ---- GIST SYNC ----
+async function uploadToGist() {
+  const token = document.getElementById('gistTokenInput').value.trim() || localStorage.getItem('gh_gist_token');
+  if (!token) { setGistStatus('请先填入 GitHub Token', 'red'); return; }
+
+  setGistStatus('上传中...', 'gold');
+  const payload = JSON.stringify({ tabs, kb }, null, 2);
+  const gistId = localStorage.getItem('gh_gist_id');
+  const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
+  const method = gistId ? 'PATCH' : 'POST';
+  const body = {
+    description: '金币猎人数据备份',
+    public: false,
+    files: { 'gold-hunter-data.json': { content: payload } }
+  };
+  try {
+    const res = await fetch(url, { method, headers: { Authorization: `token ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`GitHub 返回 ${res.status}`);
+    const data = await res.json();
+    localStorage.setItem('gh_gist_id', data.id);
+    localStorage.setItem('gh_gist_token', token);
+    setGistStatus(`✓ 上传成功！Gist ID: ${data.id.slice(0,8)}...`, 'green');
+  } catch(e) {
+    setGistStatus('✗ 上传失败：' + e.message, 'red');
+  }
+}
+
+async function loadFromGist() {
+  const token = document.getElementById('gistTokenInput').value.trim() || localStorage.getItem('gh_gist_token');
+  if (!token) { setGistStatus('请先填入 GitHub Token', 'red'); return; }
+
+  setGistStatus('查找云端数据...', 'gold');
+  try {
+    // 先看本地有没有存 Gist ID，没有就去列表里搜
+    let gistId = localStorage.getItem('gh_gist_id');
+    if (!gistId) {
+      const listRes = await fetch('https://api.github.com/gists?per_page=100', { headers: { Authorization: `token ${token}` } });
+      if (!listRes.ok) throw new Error(`GitHub 返回 ${listRes.status}`);
+      const list = await listRes.json();
+      const found = list.find(g => g.files && g.files['gold-hunter-data.json']);
+      if (!found) { setGistStatus('云端没有找到备份，请先上传一次', 'red'); return; }
+      gistId = found.id;
+      localStorage.setItem('gh_gist_id', gistId);
+    }
+
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers: { Authorization: `token ${token}` } });
+    if (!res.ok) throw new Error(`GitHub 返回 ${res.status}`);
+    const data = await res.json();
+    const content = data.files['gold-hunter-data.json']?.content;
+    if (!content) throw new Error('Gist 里没有找到数据文件');
+    const parsed = JSON.parse(content);
+    tabs = parsed.tabs || tabs;
+    kb = parsed.kb || kb;
+    activeTabId = tabs[0]?.id || null;
+    saveData();
+    renderTabs();
+    renderKB();
+    document.getElementById('inputBox').value = getActiveTab()?.content || '';
+    setGistStatus('✓ 恢复成功！数据已加载', 'green');
+  } catch(e) {
+    setGistStatus('✗ 加载失败：' + e.message, 'red');
+  }
+}
+
+function setGistStatus(msg, color) {
+  const el = document.getElementById('gistStatus');
+  el.textContent = msg;
+  el.style.color = color === 'green' ? 'var(--green)' : color === 'red' ? 'var(--red)' : 'var(--gold)';
+}
+
+// ---- SAVE TO KB ----
+function saveTo(type) {
+  if (!outputContent) { alert('先出击获取战术，再存入宝库'); return; }
+  const name = prompt(`存入${type === 'product' ? '武器库' : type === 'script' ? '技能书' : '秘籍'}，给这条内容命名：`);
+  if (!name) return;
+  kb[type].push({ name, content: outputContent });
+  saveData();
+  renderKB();
+  const btn = event.target;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '✓ 已入库!';
+  btn.style.borderColor = 'var(--green)';
+  setTimeout(() => { btn.innerHTML = orig; btn.style.borderColor = ''; }, 1500);
+}
+
+function renderKB() {
+  ['product','script','tutorial'].forEach(type => {
+    const listEl = document.getElementById(`${type}List`);
+    const countEl = document.getElementById(`${type}Count`);
+    countEl.textContent = `${kb[type].length} 条`;
+    if (kb[type].length === 0) {
+      listEl.innerHTML = '<div class="kb-empty">宝库空空，等待收录...</div>';
+    } else {
+      listEl.innerHTML = kb[type].map((item, idx) =>
+        `<div class="kb-item" onclick="openKBPage('${type}', ${idx})">
+          <span class="kb-item-name">▸ ${item.name}</span>
+          <span class="kb-item-del" onclick="event.stopPropagation();deleteKBItem('${type}',${idx})">✕</span>
+        </div>`
+      ).join('');
+    }
+  });
+}
+
+// ---- KB SUBPAGE ----
+const KB_LABELS = { product: '🗡 武器库', script: '📜 技能书', tutorial: '📖 秘籍' };
+let currentKBType = null;
+
+function openKBPage(type, focusIdx) {
+  currentKBType = type;
+  document.getElementById('kbSubpageTitle').textContent = KB_LABELS[type];
+  document.getElementById('kbSubpageSaveBtn').onclick = () => saveTo(type);
+  renderKBSubpage(type, focusIdx);
+  document.getElementById('kbSubpage').classList.add('show');
+}
+
+function closeKBPage() {
+  document.getElementById('kbSubpage').classList.remove('show');
+  currentKBType = null;
+}
+
+function renderKBSubpage(type, focusIdx) {
+  const body = document.getElementById('kbSubpageBody');
+  const items = kb[type];
+  if (items.length === 0) {
+    body.innerHTML = '<div class="kb-empty" style="padding:20px">宝库空空，从主页面出击后存入宝库</div>';
+    return;
+  }
+  body.innerHTML = items.map((item, idx) => `
+    <div class="kb-entry px-box" id="kbEntry_${idx}">
+      <div class="kb-entry-header" onclick="toggleKBEntry(${idx})">
+        <span class="kb-entry-name">▸ ${item.name}</span>
+        <span class="kb-entry-actions">
+          <span class="kb-entry-toggle" id="kbToggle_${idx}">▼</span>
+          <button class="kb-entry-del-btn" onclick="event.stopPropagation();deleteKBItem('${type}',${idx},true)">删除</button>
+        </span>
+      </div>
+      <div class="kb-entry-content ${focusIdx === idx ? 'open' : ''}" id="kbContent_${idx}">${escHtml(item.content)}</div>
+    </div>
+  `).join('');
+
+  if (focusIdx !== undefined) {
+    setTimeout(() => {
+      const el = document.getElementById(`kbEntry_${focusIdx}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+}
+
+function toggleKBEntry(idx) {
+  const content = document.getElementById(`kbContent_${idx}`);
+  const toggle = document.getElementById(`kbToggle_${idx}`);
+  const isOpen = content.classList.toggle('open');
+  toggle.textContent = isOpen ? '▲' : '▼';
+}
+
+function deleteKBItem(type, idx, fromSubpage) {
+  if (!confirm(`删除「${kb[type][idx].name}」？`)) return;
+  kb[type].splice(idx, 1);
+  saveData();
+  renderKB();
+  if (fromSubpage) renderKBSubpage(type);
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---- DAILY TASKS ----
+function getDailyTasks() {
+  return tabs
+    .filter(t => t.type === 'customer')
+    .map(t => ({ name: t.name, stage: STAGES[t.stage], done: false, id: t.id }));
+}
+
+function openDaily() {
+  const modal = document.getElementById('dailyModal');
+  const list = document.getElementById('taskList');
+  const tasks = getDailyTasks();
+  list.innerHTML = tasks.length === 0
+    ? '<div style="color:#555;font-size:8px;padding:10px 0">今天没有需要跟进的客户</div>'
+    : tasks.map((t, i) =>
+        `<div class="task-item" onclick="jumpToCustomer(${t.id})">
+          <div class="task-check${t.done ? ' done' : ''}">${t.done ? '✓' : ' '}</div>
+          <div>${t.name}<br><span class="task-stage">${t.stage}</span></div>
+        </div>`
+      ).join('');
+  modal.classList.add('show');
+}
+
+function jumpToCustomer(id) {
+  activeTabId = id;
+  closeDaily();
+  renderTabs();
+}
+
+function closeDaily() {
+  document.getElementById('dailyModal').classList.remove('show');
+}
+
+// ---- WIN ----
+function showWin() {
+  document.getElementById('winOverlay').classList.add('show');
+}
+function closeWin() {
+  document.getElementById('winOverlay').classList.remove('show');
+}
+
+// ---- INIT ----
+// load active tab content into textarea
+const initTab = getActiveTab();
+if (initTab) document.getElementById('inputBox').value = initTab.content || '';
+
+renderTabs();
+renderKB();
+document.getElementById('taskBadge').textContent = tabs.filter(t => t.type === 'customer').length;
+
+// prompt for API key if not set
+if (!getCfg().key) {
+  setTimeout(() => openSettings(), 500);
+}
+</script>
+</body>
+</html>
