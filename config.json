@@ -1,0 +1,29 @@
+{
+  "activeModel": "claude-haiku-6x",
+  "models": [
+    {
+      "id": "claude-haiku-6x",
+      "name": "Claude Haiku 6x",
+      "apiModel": "claude-haiku-4-5-20251001",
+      "provider": "anthropic",
+      "apiKey": "sk-N0D1r3PupkGsgE5yFc33Bf95269042C69035DcC888B4D291",
+      "baseUrl": "https://api.hardon.work"
+    },
+    {
+      "id": "claude-haiku-15x",
+      "name": "Claude Haiku 15x",
+      "apiModel": "claude-haiku-4-5-20251001",
+      "provider": "anthropic",
+      "apiKey": "sk-3cip4Rey6UBZohZj46D8E5B96b7f4d3fBc35E922617e6262",
+      "baseUrl": "https://api.hardon.work"
+    },
+    {
+      "id": "claude-haiku-1.5x",
+      "name": "Claude Haiku 1.5x（不可用-Kiro）",
+      "apiModel": "claude-haiku-4-5-20251001",
+      "provider": "anthropic",
+      "apiKey": "sk-s32x3JETsnsisEWG3e01Ee94B7Ba464fB7E830Fc41Ea2899",
+      "baseUrl": "https://api.hardon.work"
+    }
+  ]
+}
