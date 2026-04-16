@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>金币猎人</title>
+<title>199 路径诊断 · 金币猎人</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@400&display=swap');
 
@@ -602,8 +602,8 @@
 <!-- WIN OVERLAY -->
 <div class="win-overlay" id="winOverlay">
   <div class="win-coins">🪙🪙🪙</div>
-  <div class="win-text">目标击破！<br>宝藏到手！<br>+100 金币</div>
-  <button class="win-close" onclick="closeWin()">继续狩猎 ▶</button>
+  <div class="win-text">约到了！<br>诊断预约成功！<br>+199 元</div>
+  <button class="win-close" onclick="closeWin()">继续约下一个 ▶</button>
 </div>
 
 <!-- SETTINGS MODAL -->
@@ -669,7 +669,7 @@
       <div class="logo-coin">🪙</div>
       <div>
         <div class="title">金币猎人</div>
-        <div class="subtitle">CLOSING THE DEAL · SALES ASSISTANT v0.1</div>
+        <div class="subtitle">199咨询预约 · 路径诊断 v0.1</div>
       </div>
     </div>
     <div class="header-right">
@@ -696,7 +696,7 @@
 
   <!-- INPUT -->
   <div class="input-panel px-box">
-    <div class="panel-label">📜 情报输入</div>
+    <div class="panel-label">📜 对方说了什么</div>
 
     <!-- progress bar shown when tab is a customer -->
     <div class="progress-area" id="progressArea">
@@ -704,15 +704,15 @@
       <div class="progress-stages" id="progressStages"></div>
     </div>
 
-    <textarea id="inputBox" placeholder="把聊天记录、话术、教程... 直接粘贴进来&#10;&#10;例：&#10;[客户] 你好，想了解一下你的课程&#10;[我] 你好！你现在主要想解决什么问题？&#10;[客户] 想靠播客赚钱但不知道怎么起步" rows="10"></textarea>
+    <textarea id="inputBox" placeholder="把对方说的话粘贴进来&#10;&#10;例（第一步·还没说卡点）：&#10;你好，我是做保险的，看了你的播客&#10;&#10;例（第二步·说了卡点）：&#10;我有播客但没人听，感觉选题不对，不知道怎么吸引精准客户" rows="10"></textarea>
     <button class="gen-btn px-box" id="genBtn" onclick="generate()">▶ 出击</button>
   </div>
 
   <!-- OUTPUT -->
   <div class="output-panel px-box">
-    <div class="panel-label">⚔ 战术指令</div>
+    <div class="panel-label">⚔ 你的回复</div>
     <div class="output-box" id="outputBox">
-      <span class="placeholder">点击「出击」，AI 将根据情报给出战术指令...</span>
+      <span class="placeholder">把对方说的话粘贴进来，点击「出击」...</span>
     </div>
   </div>
 
@@ -780,7 +780,7 @@ function getCfg() {
 function saveCfg(c) { localStorage.setItem('gh_cfg', JSON.stringify(c)); }
 
 // ---- DATA ----
-const STAGES = ['建立联系','同步信息','挖掘需求','解决顾虑','达成成交'];
+const STAGES = ['挖需求', '邀约咨询', '已约时间', '咨询完成'];
 
 const DEFAULT_TABS = [
   { id: 1, name: '客户-示例', type: 'customer', stage: 0, content: '', isFolder: false },
@@ -928,7 +928,7 @@ function makeTabEl(tab, isFolder, isChild = false) {
           box.appendChild(el);
         });
       } else {
-        box.innerHTML = '<span class="placeholder">点击「出击」，AI 将根据情报给出战术指令...</span>';
+        box.innerHTML = '<span class="placeholder">把对方说的话粘贴进来，点击「出击」...</span>';
       }
       saveData();
     }
@@ -1014,49 +1014,38 @@ async function generate() {
   outputContent = '';
   _lineBuffer = '';
 
-  const stageHint = tab?.type === 'customer' ? `\n当前客户销售阶段：${STAGES[tab.stage]}（${tab.stage + 1}/5）` : '';
+  const stageHint = tab?.type === 'customer' ? `\n当前阶段：${STAGES[tab.stage] || STAGES[0]}` : '';
   const systemPrompt = `你是「金币猎人」销售助手，专门帮助销售人员应对客户对话、挑选话术、优化表达。
 
 ## 你的产品
-播客私教课（帮助学员从零开始做播客，实现引流变现）。主理人：当小时，《搞钱搞流量》播客主理人，全平台公域粉丝破百万，私域发售一小时40w。
+播客变现私教（帮助学员从零开始做播客，实现引流变现）。主理人：当小时，《搞钱搞流量》播客主理人，全平台公域粉丝破百万，私域发售一小时40w。核心目标：先转化成 199 元 1 对 1 路径诊断咨询的预约。
 
 ## 销售人员风格
 - 亲切口语化，习惯称客户为"宝"或"宝子"
-- 善用真实案例建立信任（如：我有个学员做美业，两位数播放就卖出2980的产品）
-- 会用紧迫感推动决策（如：今天最后一天/涨价前）
-- 不强推，先共情、再挖需求、再给方案
+- 善用真实案例建立信任
+- 不强推，先共情、再挖需求、再给方案${stageHint}
 
-## 销售阶段（靠谱成交五步法）
-1. 建立连接同步信息——初次接触，了解客户背景，建立信任
-2. 挖掘需求——找到客户痛点，激发对播客的兴趣
-3. 解决顾虑——回应价格/时间/效果等疑虑
-4. 最后成交——给出临门一脚，推动付款${stageHint}
+## 两步走逻辑
 
-## 客户类型
-- 学生小白：没收入/刚起步，在乎学到什么、能不能赚到钱
-- 在职副业：有工作，时间有限，在乎投入产出比
-- 转介绍：朋友推荐来的，信任基础高，在乎具体权益
-- 公域：从抖音/小红书/视频号来的，在乎差异化和竞争优势
-- 自由职业：已有一技之长，在乎如何用播客放大已有优势
-- 个人成长：想提升自己，在乎知识和社群价值
+### 第一步：建立连接 + 挖需求
+**判断标准**：对方只是打招呼、说了大方向、或者还没说清楚卡在哪一步
+→ 输出这句挖卡点的话（直接可发给对方）：
+「你好，我是搞钱搞流量的播客主当小时。很多朋友加我，都是手里有点技能或资源，但不知道怎么能稳定变现。方便的话，一句话说说你目前在做什么？以及卡在哪一步了？或者是想哪里再更进一步？」
 
-## 核心销售技巧（搞钱搞流量方法论）
-- 等价交换：每个行动指令配备奖励，给予vs索取要分清
-- 封闭式选项：挖需求给1/2/3让客户选，降低门槛
-- 肯定需求：帮客户把模糊需求变成板上钉钉
-- 极限场景：把日常问题拉到最坏结果，恐惧被惊动希望才出场
-- 愿景钩子：描绘"到时候"的具体场景，种草进心里变成心锚
-- 残缺效应：永远留一个底牌让对方主动来找你
-- 成交梯度钩子：低价成交后告知可补差价升级，埋下高价单伏笔
-- 可聊不交付：成交前只描述结果，不交付具体方案
+### 第二步：判断卡点 + 邀约 199 咨询
+**判断标准**：对方已经说清楚卡在哪一步，你能具体识别出核心卡点
+→ 输出邀约话术（直接可发给对方），严格按此格式：
+「明白了。卡在[具体问题]这个问题上，核心是缺一个[什么]。我有个 199 元的 1 对 1 路径诊断咨询，就是专门解决这个。有兴趣我们可以约时间详聊呀？」
+
+**[具体问题]** = 用对方自己的词，精准描述卡点
+**[缺一个什么]** = 核心缺失（变现路径/选题框架/引流系统/客户画像/定位/转化逻辑……）
 
 ${buildKBContext()}
 
 ## 输出格式
-- 先说「📍 当前阶段」和「📌 客户类型判断」
-- 推荐话术时给2-3条候选，说明各自适合的情境
-- 改写话术时直接输出改写版本，附一句说明
-- 用##标注板块标题；内容简洁口语化；如果是聊天记录必须给出下一句具体话术
+- 先说「📍 当前阶段」和「📌 对方卡点和需求」
+- 推荐话术给 2-3 条候选（根据对方语气/行业略有不同）
+- 用 ## 标注板块标题；内容简洁口语化
 - 风格像游戏攻略一样直接，不废话`;
 
   try {
